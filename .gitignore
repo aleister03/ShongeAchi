@@ -27,3 +27,6 @@ frontend/out/
 # Coverage
 coverage/
 node_modules
+
+
+.next/
