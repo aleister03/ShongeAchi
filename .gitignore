@@ -11,7 +11,9 @@ frontend/.env.development.local
 frontend/.env.production.local
 
 # Next.js
+.next/
 frontend/.next/
+out/
 frontend/out/
 
 # Logs
