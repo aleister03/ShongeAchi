@@ -1,29 +1,19 @@
 import connectDB from "@/lib/mongodb";
+import { ApiError, assertObjectId, failure, requireFields, success } from "@/lib/api";
 import Elder from "@/models/Elder";
-import { NextResponse } from "next/server";
 
 export async function PUT(request, context) {
   try {
     await connectDB();
     const { id } = await context.params;
+    assertObjectId(id, "elder id");
     const body = await request.json();
-    const { days, escalateAfterHours } = body;
-
-    const elder = await Elder.findByIdAndUpdate(
-      id,
-      { visitSchedule: { days, escalateAfterHours } },
-      { new: true }
-    );
-
-    if (!elder) {
-      return NextResponse.json({ error: "Elder not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(
-      { success: true, message: "Schedule updated", data: elder.visitSchedule },
-      { status: 200 }
-    );
+    requireFields(body, ["days", "escalateAfterHours"]);
+    if (!Array.isArray(body.days) || body.escalateAfterHours < 1) throw new ApiError(400, "Invalid visit schedule");
+    const elder = await Elder.findByIdAndUpdate(id, { visitSchedule: body }, { returnDocument: "after", runValidators: true });
+    if (!elder) throw new ApiError(404, "Elder not found");
+    return success(elder.visitSchedule, 200, { message: "Schedule updated" });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return failure(error);
   }
 }

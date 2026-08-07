@@ -1,6 +1,7 @@
 import connectDB from "@/lib/mongodb";
 import Visit from "@/models/Visit";
-import { NextResponse } from "next/server";
+import { ApiError, assertObjectId, failure, success } from "@/lib/api";
+import Elder from "@/models/Elder";
 
 function getLevelLabel(visits, field) {
   const poor = visits.filter(v => v[field] === "Poor").length;
@@ -11,13 +12,15 @@ function getLevelLabel(visits, field) {
   return "Low";
 }
 
-export async function GET(request, context) {
+export async function GET(_request, context) {
   try {
     await connectDB();
     const { id } = await context.params;
+    assertObjectId(id, "elder id");
+    if (!await Elder.exists({ _id: id })) throw new ApiError(404, "Elder not found");
     const visits = await Visit.find({ elderId: id });
     if (visits.length === 0) {
-      return NextResponse.json({ success: true, data: { message: "No visits found" } }, { status: 200 });
+      return success({ message: "No visits found" });
     }
     const breakdown = {
       appetite: getLevelLabel(visits, "appetiteLevel"),
@@ -27,8 +30,8 @@ export async function GET(request, context) {
       medicationMissed: visits.filter(v => !v.medicationTaken).length,
       totalVisits: visits.length
     };
-    return NextResponse.json({ success: true, data: breakdown }, { status: 200 });
+    return success(breakdown);
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return failure(error);
   }
 }

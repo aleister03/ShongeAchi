@@ -2,20 +2,23 @@
   "name": "shonge-achi-api",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node --env-file=.env.local scripts/run-with-db.mjs dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "node --env-file=.env.local scripts/run-with-db.mjs start",
+    "lint": "eslint",
+    "seed": "node --env-file=.env.local scripts/seed.mjs",
+    "test:checkers": "node scripts/check-checkers.mjs"
   },
   "dependencies": {
     "mongoose": "^9.7.4",
-    "next": "16.2.10",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "next": "^16.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "eslint": "^9",
-    "eslint-config-next": "16.2.10"
+    "eslint-config-next": "^16.3.0"
   }
 }

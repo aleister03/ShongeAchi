@@ -1,6 +1,7 @@
 import connectDB from "@/lib/mongodb";
 import Visit from "@/models/Visit";
-import { NextResponse } from "next/server";
+import { ApiError, assertObjectId, failure, success } from "@/lib/api";
+import Elder from "@/models/Elder";
 
 function calculateConcernScore(visits) {
   if (visits.length === 0) return 0;
@@ -18,13 +19,15 @@ function calculateConcernScore(visits) {
   return Math.min(Math.round(score / visits.length), 100);
 }
 
-export async function GET(request, context) {
+export async function GET(_request, context) {
   try {
     await connectDB();
     const { id } = await context.params;
+    assertObjectId(id, "elder id");
+    if (!await Elder.exists({ _id: id })) throw new ApiError(404, "Elder not found");
     const visits = await Visit.find({ elderId: id }).sort({ visitDate: 1 });
     if (visits.length === 0) {
-      return NextResponse.json({ success: true, data: { concernScore: 0, trend: "No data", totalVisits: 0 } }, { status: 200 });
+      return success({ concernScore: 0, trend: "No data", totalVisits: 0 });
     }
     const concernScore = calculateConcernScore(visits);
     const firstHalf = visits.slice(0, Math.floor(visits.length / 2));
@@ -32,17 +35,14 @@ export async function GET(request, context) {
     const firstScore = calculateConcernScore(firstHalf);
     const secondScore = calculateConcernScore(secondHalf);
     const trend = secondScore > firstScore ? "Declining" : "Improving";
-    return NextResponse.json({
-      success: true,
-      data: {
+    return success({
         concernScore,
         trend,
         totalVisits: visits.length,
         completedVisits: visits.filter(v => v.status === "Fine" || v.status === "Concerned").length,
         missedVisits: visits.filter(v => v.status === "No Answer").length
-      }
-    }, { status: 200 });
+    });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return failure(error);
   }
 }

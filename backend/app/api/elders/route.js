@@ -1,24 +1,20 @@
 import connectDB from "@/lib/mongodb";
+import { ApiError, failure, pick, requireFields, success } from "@/lib/api";
 import Elder from "@/models/Elder";
-import { NextResponse } from "next/server";
+
+const ELDER_FIELDS = ["name", "age", "gender", "phone", "address", "bio", "medicalConditions", "mobilityNotes", "emergencyContact", "secondaryContact", "familyMemberId", "visitSchedule"];
 
 export async function GET(request) {
   try {
     await connectDB();
     const { searchParams } = new URL(request.url);
     const familyMemberId = searchParams.get("familyMemberId");
-
-    if (!familyMemberId) {
-      return NextResponse.json(
-        { error: "familyMemberId is required" },
-        { status: 400 }
-      );
-    }
-
-    const elders = await Elder.find({ familyMemberId });
-    return NextResponse.json({ success: true, data: elders }, { status: 200 });
+    const unassigned = searchParams.get("unassigned") === "true";
+    if (!familyMemberId && !unassigned) throw new ApiError(400, "familyMemberId is required");
+    const elders = await Elder.find(unassigned ? { checkerId: null } : { familyMemberId });
+    return success(elders);
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return failure(error);
   }
 }
 
@@ -26,10 +22,10 @@ export async function POST(request) {
   try {
     await connectDB();
     const body = await request.json();
-
-    const elder = await Elder.create(body);
-    return NextResponse.json({ success: true, data: elder }, { status: 201 });
+    requireFields(body, ["name", "age", "gender", "phone", "address", "emergencyContact", "familyMemberId"]);
+    const elder = await Elder.create(pick(body, ELDER_FIELDS));
+    return success(elder, 201);
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return failure(error);
   }
 }

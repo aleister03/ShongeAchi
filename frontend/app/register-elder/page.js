@@ -1,7 +1,8 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { apiRequest } from "@/app/lib/api";
 
 const DAYS = ["SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI"];
 const DAY_FULL = {
@@ -12,9 +13,6 @@ const DAY_FULL = {
 export default function RegisterElder() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [photo, setPhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
-  const fileRef = useRef();
 
   // Step 1
   const [form1, setForm1] = useState({
@@ -33,14 +31,6 @@ export default function RegisterElder() {
   const [secondary, setSecondary] = useState({ name: "", phone: "", relationship: "", note: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  function handlePhotoChange(e) {
-    const file = e.target.files[0];
-    if (file) {
-      setPhoto(file);
-      setPhotoPreview(URL.createObjectURL(file));
-    }
-  }
 
   function toggleDay(day) {
     setSelectedDays(prev =>
@@ -116,20 +106,15 @@ export default function RegisterElder() {
         }
       };
 
-      const res = await fetch("http://localhost:1078/api/elders", {
+      await apiRequest("/api/elders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
-      if (data.success) {
-        router.push("/");
-      } else {
-        setError(data.error || "Something went wrong.");
-      }
+      router.push("/");
     } catch (err) {
-      setError("Failed to connect to server. Make sure backend is running.");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -143,7 +128,7 @@ export default function RegisterElder() {
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-8 px-4">
-        <Image src="/logo.png" alt="Logo" width={48} height={48} />
+        <Image src="/logo.png" alt="Logo" width={61} height={48} style={{ width: "auto", height: "48px" }} />
         <span className="text-xl font-semibold text-[#2a7a5a]">Shonge Achi</span>
       </div>
 
@@ -165,24 +150,6 @@ export default function RegisterElder() {
         {/* ── STEP 1 ── */}
         {step === 1 && (
           <div className="flex flex-col gap-6">
-            {/* Photo upload */}
-            <div>
-              <button
-                onClick={() => fileRef.current.click()}
-                className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200 hover:border-[#4a9a7a] transition"
-              >
-                {photoPreview ? (
-                  <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                )}
-              </button>
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-            </div>
-
             {/* Name & Phone */}
             <div className="grid grid-cols-2 gap-6">
               <div>

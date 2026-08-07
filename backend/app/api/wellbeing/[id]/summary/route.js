@@ -1,17 +1,18 @@
 import connectDB from "@/lib/mongodb";
 import Visit from "@/models/Visit";
 import Elder from "@/models/Elder";
-import { NextResponse } from "next/server";
+import { ApiError, assertObjectId, failure, success } from "@/lib/api";
 
-export async function GET(request, context) {
+export async function GET(_request, context) {
   try {
     await connectDB();
     const { id } = await context.params;
+    assertObjectId(id, "elder id");
     const elder = await Elder.findById(id);
-    const visits = await Visit.find({ elderId: id }).sort({ visitDate: -1 }).limit(10);
     if (!elder) {
-      return NextResponse.json({ error: "Elder not found" }, { status: 404 });
+      throw new ApiError(404, "Elder not found");
     }
+    const visits = await Visit.find({ elderId: id }).sort({ visitDate: -1 }).limit(10);
     const concernedCount = visits.filter(v => v.status === "Concerned").length;
     const noAnswerCount = visits.filter(v => v.status === "No Answer").length;
     const poorAppetiteCount = visits.filter(v => v.appetiteLevel === "Poor").length;
@@ -22,16 +23,13 @@ export async function GET(request, context) {
       `${poorAppetiteCount} poor appetite report(s), ${poorMobilityCount} poor mobility report(s), ` +
       `${missedMedCount} missed medication(s). ` +
       `${poorMobilityCount >= 2 ? "Mobility is showing a declining trend — consider increasing visit frequency." : "No critical trend detected."}`;
-    return NextResponse.json({
-      success: true,
-      data: {
+    return success({
         elderName: elder.name,
         totalVisitsAnalyzed: visits.length,
         summary,
         recommendation: poorMobilityCount >= 2 || concernedCount >= 2 ? "Increase visit frequency" : "Continue current schedule"
-      }
-    }, { status: 200 });
+    });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return failure(error);
   }
 }
