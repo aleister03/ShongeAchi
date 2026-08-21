@@ -1,24 +1,42 @@
 import connectDB from "@/lib/mongodb";
-import { ApiError, failure, pick, requireFields, success } from "@/lib/api";
-import { serializeChecker } from "@/lib/checkers";
 import Checker from "@/models/Checker";
+import Elder from "@/models/Elder";
+import { NextResponse } from "next/server";
 
-const CREATE_FIELDS = ["name", "serviceArea", "phone", "shift", "experienceYears", "maxWorkload"];
-
-export async function GET() {
+export async function GET(request) {
   try {
     await connectDB();
-    const data = (await Checker.find().sort({ createdAt: -1 }).lean()).map(serializeChecker);
-    const active = data.filter((checker) => checker.active);
-    return success(data, 200, { summary: {
-      activeCheckers: active.length,
-      atFullCapacity: active.filter((checker) => checker.currentWorkload >= checker.maxWorkload).length,
-      pendingVerification: data.filter((checker) => checker.verificationStatus === "pending").length,
-      averageWorkload: active.length ? active.reduce((sum, checker) => sum + checker.currentWorkload, 0) / active.length : 0,
-      averageMaxWorkload: active.length ? active.reduce((sum, checker) => sum + checker.maxWorkload, 0) / active.length : 0
-    } });
+    const { searchParams } = new URL(request.url);
+    const area = searchParams.get("area");
+    const search = searchParams.get("search");
+    const availableOnly = searchParams.get("availableOnly") === "true";
+
+    const filter = {};
+    if (area && area !== "all") filter.serviceArea = area;
+    if (search) filter.name = { $regex: search, $options: "i" };
+
+    const checkers = await Checker.find(filter).sort({ createdAt: -1 });
+
+    // workload is computed on the fly from Elder.assignedCheckerId rather than stored as a
+    // counter on Checker, so it can never drift out of sync with the actual assignments.
+    const withWorkload = await Promise.all(
+      checkers.map(async (checker) => {
+        const assignedCount = await Elder.countDocuments({ assignedCheckerId: checker._id });
+        return {
+          ...checker.toObject(),
+          assignedCount,
+          atCapacity: assignedCount >= checker.maxCapacity,
+        };
+      })
+    );
+
+    const filtered = availableOnly
+      ? withWorkload.filter((c) => c.assignedCount < c.maxCapacity)
+      : withWorkload;
+
+    return NextResponse.json({ success: true, data: filtered }, { status: 200 });
   } catch (error) {
-    return failure(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -26,11 +44,9 @@ export async function POST(request) {
   try {
     await connectDB();
     const body = await request.json();
-    requireFields(body, ["name", "serviceArea"]);
-    if (!body.name.trim() || !body.serviceArea.trim()) throw new ApiError(400, "Name and service area cannot be blank");
-    const checker = await Checker.create(pick(body, CREATE_FIELDS));
-    return success(serializeChecker(checker), 201);
+    const checker = await Checker.create(body);
+    return NextResponse.json({ success: true, data: checker }, { status: 201 });
   } catch (error) {
-    return failure(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { Barlow } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "./components/AuthProvider";
 
 const barlow = Barlow({
   subsets: ["latin"],
@@ -10,16 +11,14 @@ const barlow = Barlow({
 export const metadata = {
   title: "Shonge Achi",
   description: "Elderly wellbeing monitoring platform",
-  icons: {
-    icon: "/logo.png",
-  },
+  icons: { icon: "/logo.png" },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${barlow.variable} font-[family-name:var(--font-barlow)]`}>
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

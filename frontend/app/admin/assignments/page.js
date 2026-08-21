@@ -1,157 +1,141 @@
 "use client";
 import { useEffect, useState } from "react";
-import { apiRequest } from "@/app/lib/api";
-import { Badge, ErrorMessage } from "@/app/components/ui/AdminUI";
+import AdminNavbar from "../../components/AdminNavbar";
+import { api } from "@/lib/apiClient";
 
-const initials = (name) =>
-  name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-
-export default function AssignmentsPage() {
+export default function IntelligentAssignment() {
   const [waiting, setWaiting] = useState([]);
-  const [selectedElder, setSelectedElder] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
-  const [dismissed, setDismissed] = useState([]); // rejected checker ids, client-side only
-  const [loadingList, setLoadingList] = useState(true);
   const [loadingRecs, setLoadingRecs] = useState(false);
-  const [error, setError] = useState("");
-  const [actioning, setActioning] = useState(null); // checkerId currently being approved
+  const [rejected, setRejected] = useState([]);
 
-  const loadWaitingList = () => {
-    setLoadingList(true);
-    apiRequest("/api/elders?unassigned=true")
-      .then((body) => setWaiting(body.data))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoadingList(false));
-  };
+  useEffect(() => {
+    loadWaiting();
+  }, []);
 
-  useEffect(() => { loadWaitingList(); }, []);
+  async function loadWaiting() {
+    const res = await api.get("/api/elders?status=Waiting");
+    setWaiting(res.data);
+  }
 
-  const selectElder = (elder) => {
-    setSelectedElder(elder);
-    setRecommendations([]);
-    setDismissed([]);
-    setError("");
+  async function selectElder(elder) {
+    setSelected(elder);
+    setRejected([]);
     setLoadingRecs(true);
-    apiRequest(`/api/elders/${elder._id}/recommended-checkers`)
-      .then((body) => setRecommendations(body.data.recommendations))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoadingRecs(false));
-  };
-
-  const approve = async (checkerId) => {
-    if (!selectedElder) return;
-    setError("");
-    setActioning(checkerId);
     try {
-      await apiRequest(`/api/checkers/${checkerId}/assignments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ elderId: selectedElder._id }),
-      });
-      // Assignment succeeded — elder leaves the waiting list.
-      setWaiting((items) => items.filter((e) => e._id !== selectedElder._id));
-      setSelectedElder(null);
-      setRecommendations([]);
-    } catch (err) {
-      setError(err.message);
+      const res = await api.get(`/api/assignments/recommend?elderId=${elder._id}`);
+      setRecommendations(res.data.recommendations);
     } finally {
-      setActioning(null);
+      setLoadingRecs(false);
     }
-  };
+  }
 
-  const reject = (checkerId) => {
-    // Rejection only affects this admin's current view — nothing is persisted.
-    setDismissed((ids) => [...ids, checkerId]);
-  };
+  function reject(checkerId) {
+    setRejected((prev) => [...prev, checkerId]);
+  }
 
-  const visibleRecommendations = recommendations.filter(
-    (checker) => !dismissed.includes(checker._id)
-  );
+  async function approve(checkerId) {
+    await api.post("/api/assignments/approve", { elderId: selected._id, checkerId });
+    setSelected(null);
+    setRecommendations([]);
+    loadWaiting();
+  }
 
   return (
-    <main className="assignMain">
-      <p className="eyebrow">Checkers › Intelligent Checker Assignment</p>
-      <h1>Intelligent Checker Assignment</h1>
-      <p className="subtitle">
-        Elders waiting for a checker, ranked by location, workload, experience, and condition match
-      </p>
-      <ErrorMessage message={error} />
+    <main className="min-h-screen" style={{ background: "#FBF3D9" }}>
+      <AdminNavbar />
+      <div className="px-10 py-10">
+        <h1 className="text-3xl font-bold text-[#1a1a1a] mb-8">Intelligent Checker Assignment</h1>
 
-      <div className="assignGrid">
-        <section className="waitingPanel">
-          <h2>Waiting for Assignment</h2>
-          {loadingList && <p className="empty">Loading…</p>}
-          {!loadingList && !waiting.length && <p className="empty">No elders waiting for assignment.</p>}
-          {waiting.map((elder) => (
-            <button
-              key={elder._id}
-              className={`elderCard ${selectedElder?._id === elder._id ? "selected" : ""}`}
-              onClick={() => selectElder(elder)}
-            >
-              <span className="avatar">{initials(elder.name)}</span>
-              <div>
-                <strong>{elder.name}</strong>
-                <p className="muted">{elder.address}</p>
-                {!!elder.medicalConditions?.length && (
-                  <p className="muted">{elder.medicalConditions.join(", ")}</p>
-                )}
-              </div>
-            </button>
-          ))}
-        </section>
-
-        <section className="recommendPanel">
-          {!selectedElder && <p className="empty">Select an elder to see recommended checkers.</p>}
-
-          {selectedElder && (
-            <>
-              <div className="recommendHeader">
-                <div>
-                  <strong>{selectedElder.name}</strong>
-                  <p className="muted">
-                    {selectedElder.address}
-                    {!!selectedElder.medicalConditions?.length &&
-                      ` · ${selectedElder.medicalConditions.join(", ")}`}
-                  </p>
-                </div>
-                <span className="badge">Recommended Checkers</span>
-              </div>
-
-              {loadingRecs && <p className="empty">Finding the best checkers…</p>}
-              {!loadingRecs && !visibleRecommendations.length && (
-                <p className="empty">No eligible checkers available right now.</p>
-              )}
-
-              {visibleRecommendations.map((checker) => (
-                <div className="checkerRow" key={checker._id}>
-                  <div className="person">
-                    <span className="avatar">{initials(checker.name)}</span>
-                    <div>
-                      <strong>{checker.name}</strong>
-                      <p className="muted">
-                        {checker.serviceArea} · {checker.experienceYears.toFixed(1)} yrs ·{" "}
-                        {checker.currentWorkload}/{checker.maxWorkload} elders
-                      </p>
-                      <p className="muted">Match score: {checker.matchScore} / 100</p>
-                    </div>
+        <div className="grid grid-cols-[320px_1fr] gap-6">
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <h2 className="font-bold text-[#1a1a1a] underline mb-4">Waiting for Assignment</h2>
+            <div className="flex flex-col gap-3">
+              {waiting.length === 0 && <p className="text-sm text-gray-400">No elders waiting.</p>}
+              {waiting.map((elder) => (
+                <button
+                  key={elder._id}
+                  onClick={() => selectElder(elder)}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left transition ${
+                    selected?._id === elder._id ? "bg-[#d9ecd0]" : "bg-[#eef6ea] hover:bg-[#e4f0dc]"
+                  }`}
+                >
+                  <div className="w-9 h-9 rounded-full bg-gray-200 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-sm text-[#1a1a1a]">{elder.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {elder.address?.city} · {elder.medicalConditions?.join(", ") || "No conditions noted"}
+                    </p>
                   </div>
-                  <div className="actions">
-                    <button
-                      className="approveButton"
-                      disabled={actioning === checker._id}
-                      onClick={() => approve(checker._id)}
-                    >
-                      {actioning === checker._id ? "Approving…" : "Approve"}
-                    </button>
-                    <button className="rejectButton" onClick={() => reject(checker._id)}>
-                      Reject
-                    </button>
-                  </div>
-                </div>
+                </button>
               ))}
-            </>
-          )}
-        </section>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            {!selected ? (
+              <p className="text-gray-400 text-sm">Select an elder from the left to see recommended checkers.</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1a1a1a]">{selected.name}</h2>
+                    <p className="text-sm text-gray-500">
+                      {selected.address?.areaTahna}, {selected.address?.city} | {selected.visitSchedule?.days?.join(", ") || "No days set"}
+                    </p>
+                    {selected.medicalConditions?.length > 0 && (
+                      <span className="inline-block mt-2 px-3 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+                        {selected.medicalConditions.join(", ")}
+                      </span>
+                    )}
+                  </div>
+                  <span className="px-4 py-1.5 bg-[#e6f2dd] text-[#2a5a4a] rounded-full text-sm font-medium">
+                    Recommended Checkers
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  {loadingRecs ? (
+                    <p className="text-sm text-gray-400">Finding the best checkers...</p>
+                  ) : recommendations.filter((r) => !rejected.includes(r.checker._id)).length === 0 ? (
+                    <p className="text-sm text-gray-400">No available checkers found nearby.</p>
+                  ) : (
+                    recommendations
+                      .filter((r) => !rejected.includes(r.checker._id))
+                      .map((rec) => (
+                        <div key={rec.checker._id} className="flex items-center justify-between bg-[#f0f7ec] rounded-xl px-5 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-[#fdf0c8]" />
+                            <div>
+                              <p className="font-medium text-[#1a1a1a]">{rec.checker.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {rec.checker.serviceArea} · {rec.checker.experienceYears} yrs · {rec.assignedCount}/{rec.checker.maxCapacity} assigned · match {rec.score}%
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => approve(rec.checker._id)}
+                              className="px-5 py-2 rounded-full bg-[#4a8a5a] text-white text-sm font-medium hover:bg-[#3a7248] transition"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => reject(rec.checker._id)}
+                              className="px-5 py-2 rounded-full bg-[#e8a2a2] text-white text-sm font-medium hover:bg-[#dc8b8b] transition"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </main>
   );
