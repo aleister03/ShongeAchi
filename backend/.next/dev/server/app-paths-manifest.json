@@ -1,5 +1,0 @@
-{
-  "/api/checkers/[id]/route": "app/api/checkers/[id]/route.js",
-  "/api/checkers/route": "app/api/checkers/route.js",
-  "/api/elders/route": "app/api/elders/route.js"
-}
