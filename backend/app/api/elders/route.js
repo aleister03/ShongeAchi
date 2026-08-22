@@ -1,5 +1,6 @@
 import connectDB from "@/lib/mongodb";
 import Elder from "@/models/Elder";
+import { geocodeAddress } from "@/lib/geo";
 import { NextResponse } from "next/server";
 
 export async function GET(request) {
@@ -13,9 +14,6 @@ export async function GET(request) {
     if (familyMemberId) filter.familyMemberId = familyMemberId;
     if (status) filter.status = status;
 
-    // NOTE: familyMemberId is now optional (was required before). Admin screens like the
-    // Intelligent Checker Assignment queue need every elder across every family, filtered
-    // by status instead of by owner.
     const elders = await Elder.find(filter).sort({ createdAt: -1 });
     return NextResponse.json({ success: true, data: elders }, { status: 200 });
   } catch (error) {
@@ -27,6 +25,20 @@ export async function POST(request) {
   try {
     await connectDB();
     const body = await request.json();
+
+    if (body.address && !body.address.coordinates?.lat) {
+      const queryParts = [
+        body.address.road,
+        body.address.areaTahna,
+        body.address.city,
+        body.address.country || "Bangladesh",
+      ].filter(Boolean);
+      const coords = await geocodeAddress(queryParts.join(", "));
+      if (coords) {
+        body.address = { ...body.address, coordinates: coords };
+      }
+    }
+
     const elder = await Elder.create(body);
     return NextResponse.json({ success: true, data: elder }, { status: 201 });
   } catch (error) {

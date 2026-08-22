@@ -2,6 +2,7 @@ import connectDB from "@/lib/mongodb";
 import Checker from "@/models/Checker";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { geocodeAddress } from "@/lib/geo";
 
 export async function POST(request) {
   try {
@@ -32,12 +33,13 @@ export async function POST(request) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-
+    const serviceLocation = await geocodeAddress(`${serviceArea}, Dhaka, Bangladesh`);
     const checker = await Checker.create({
       name,
       phone,
       passwordHash,
       serviceArea,
+      serviceLocation: serviceLocation || undefined,
       workingHours: { start: workingHoursStart, end: workingHoursEnd },
       experienceYears: Number(experienceYears) || 0,
       nidPhoto,
@@ -47,7 +49,6 @@ export async function POST(request) {
       status: "Inactive",
     });
 
-    // never echo the password hash back to the client
     const { passwordHash: _omit, ...safeChecker } = checker.toObject();
 
     return NextResponse.json({ success: true, data: safeChecker }, { status: 201 });

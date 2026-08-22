@@ -1,6 +1,7 @@
 import connectDB from "@/lib/mongodb";
 import Checker from "@/models/Checker";
 import Elder from "@/models/Elder";
+import { geocodeAddress } from "@/lib/geo";
 import { NextResponse } from "next/server";
 
 export async function GET(request) {
@@ -17,8 +18,6 @@ export async function GET(request) {
 
     const checkers = await Checker.find(filter).sort({ createdAt: -1 });
 
-    // workload is computed on the fly from Elder.assignedCheckerId rather than stored as a
-    // counter on Checker, so it can never drift out of sync with the actual assignments.
     const withWorkload = await Promise.all(
       checkers.map(async (checker) => {
         const assignedCount = await Elder.countDocuments({ assignedCheckerId: checker._id });
@@ -44,6 +43,12 @@ export async function POST(request) {
   try {
     await connectDB();
     const body = await request.json();
+
+    if (body.serviceArea && !body.serviceLocation?.lat) {
+      const coords = await geocodeAddress(`${body.serviceArea}, Dhaka, Bangladesh`);
+      if (coords) body.serviceLocation = coords;
+    }
+
     const checker = await Checker.create(body);
     return NextResponse.json({ success: true, data: checker }, { status: 201 });
   } catch (error) {

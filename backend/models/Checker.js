@@ -6,6 +6,15 @@ const CheckerSchema = new mongoose.Schema({
   email: { type: String, default: "" },
   passwordHash: { type: String, required: true },
   serviceArea: { type: String, required: true },
+  // --- NEW: geocoded from serviceArea at creation time (see
+  // backend/lib/geo.js), used by Intelligent Checker Assignment for real
+  // distance-based scoring. Same best-effort caveat as
+  // Elder.address.coordinates — null until successfully geocoded.
+  serviceLocation: {
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null },
+  },
+  // ---------------------------------------------------------------------
   workingHours: {
     start: { type: String, default: "08:00" },
     end: { type: String, default: "18:00" },

@@ -8,6 +8,17 @@ const AddressSchema = new mongoose.Schema({
   city: { type: String, default: "" },
   postalCode: { type: String, default: "" },
   country: { type: String, default: "Bangladesh" },
+  // --- NEW: geocoded from the fields above at creation time (see
+  // backend/lib/geo.js), used by Intelligent Checker Assignment for real
+  // distance-based scoring instead of area/city string matching. Null
+  // until successfully geocoded — every consumer of this field must
+  // handle that case, since geocoding is best-effort (network issues, or
+  // an address too vague to resolve) and never blocks elder creation.
+  coordinates: {
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null },
+  },
+  // ---------------------------------------------------------------------
 });
 
 // Bangladeshi mobile numbers: 11 digits, starting with one of the listed operator prefixes.
