@@ -4,11 +4,9 @@ import Checker from "@/models/Checker";
 import Visit from "@/models/Visit";
 import Escalation from "@/models/Escalation";
 import { computeEscalations } from "@/lib/escalationEngine";
+import { getPlatformConfig } from "@/lib/platformConfig";
 import { NextResponse } from "next/server";
 
-// GET /api/escalations?status=Open
-// Lists escalations for the admin "active escalations" view. Defaults to
-// everything; pass status=Open to see only what still needs attention.
 export async function GET(request) {
   try {
     await connectDB();
@@ -25,13 +23,11 @@ export async function GET(request) {
   }
 }
 
-// POST /api/escalations
-// Runs one sweep of the Automated Escalation Engine right now. Triggered
-// by the admin "Run Escalation Check" button (and, later, could be hit by
-// an external cron on a timer — the detection logic doesn't care who calls it).
 export async function POST() {
   try {
     await connectDB();
+
+    const platformConfig = await getPlatformConfig();
 
     const elders = await Elder.find({ status: "Assigned" });
     const openEscalations = await Escalation.find({ status: "Open" }).select("elderId");
@@ -41,8 +37,6 @@ export async function POST() {
     const checkers = await Checker.find({ _id: { $in: checkerIds } }).select("name");
     const checkerNameById = new Map(checkers.map((c) => [String(c._id), c.name]));
 
-    // Only the last two days of visits are needed for "was today's visit
-    // logged" — pulling everything would be wasteful as visit history grows.
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     const recentVisits = await Visit.find({ visitDate: { $gte: twoDaysAgo } }).sort({ visitDate: -1 });
 
@@ -54,7 +48,7 @@ export async function POST() {
     }
 
     const now = new Date();
-    const findings = computeEscalations(elders, visitsByElderId, openElderIds, now);
+    const findings = computeEscalations(elders, visitsByElderId, openElderIds, now, platformConfig);
     const elderById = new Map(elders.map((e) => [String(e._id), e]));
 
     const created = await Promise.all(
@@ -69,13 +63,9 @@ export async function POST() {
           severity: f.severity,
           reason: f.reason,
           relatedVisitId: f.relatedVisitId,
-          escalationSteps: [
-            {
-              stage: "Family Notified",
-              note: "Simulated notification sent to the family contact chain.",
-              at: now,
-            },
-          ],
+          escalationSteps: platformConfig.notificationRules?.escalationNotificationsEnabled
+            ? [{ stage: "Family Notified", note: "Simulated notification sent to the family contact chain.", at: now }]
+            : [{ stage: "Escalation Raised", note: "Notifications are currently disabled in Platform Configuration.", at: now }],
         });
       })
     );
@@ -86,6 +76,7 @@ export async function POST() {
         data: {
           scanned: elders.length,
           newEscalations: created.length,
+          disasterModeActive: !!platformConfig.disasterMode?.enabled,
           escalations: created,
         },
       },

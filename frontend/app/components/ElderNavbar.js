@@ -8,6 +8,7 @@ const TABS = [
   { key: "visits", label: "Visit History" },
   { key: "wellbeing", label: "Wellbeing History" },
   { key: "checkers", label: "Checkers" },
+  { key: "messages", label: "Messages" },
 ];
 
 export default function ElderNavbar({ elderId, active }) {
