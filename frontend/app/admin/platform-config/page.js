@@ -101,7 +101,7 @@ export default function PlatformConfigPage() {
   return (
     <main className="min-h-screen" style={{ background: "#FBF3D9" }}>
       <AdminNavbar />
-      <div className="px-10 py-10 max-w-3xl">
+      <div className="px-10 py-10 max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-3xl font-bold text-[#1a1a1a]">Platform Configuration</h1>
           {saved && <span className="text-sm text-[#2a7a5a] font-medium">Saved ✓</span>}

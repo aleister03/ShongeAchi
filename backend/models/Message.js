@@ -6,7 +6,12 @@ const MessageSchema = new mongoose.Schema({
   familyMemberId: { type: String, required: true },
   senderRole: { type: String, enum: ["family", "checker"], required: true },
   senderName: { type: String, required: true },
-  text: { type: String, required: true },
+  text: { type: String, default: "" },
+  attachment: {
+    kind: { type: String, enum: ["image", "video", null], default: null },
+    data: { type: String, default: "" }, 
+    mimeType: { type: String, default: "" },
+  },
   createdAt: { type: Date, default: Date.now },
 });
 
