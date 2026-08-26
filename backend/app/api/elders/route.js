@@ -1,20 +1,23 @@
 import connectDB from "@/lib/mongodb";
-import { ApiError, failure, pick, requireFields, success } from "@/lib/api";
 import Elder from "@/models/Elder";
-
-const ELDER_FIELDS = ["name", "age", "gender", "phone", "address", "bio", "medicalConditions", "mobilityNotes", "emergencyContact", "secondaryContact", "familyMemberId", "visitSchedule"];
+import { geocodeAddress } from "@/lib/geo";
+import { NextResponse } from "next/server";
 
 export async function GET(request) {
   try {
     await connectDB();
     const { searchParams } = new URL(request.url);
     const familyMemberId = searchParams.get("familyMemberId");
-    const unassigned = searchParams.get("unassigned") === "true";
-    if (!familyMemberId && !unassigned) throw new ApiError(400, "familyMemberId is required");
-    const elders = await Elder.find(unassigned ? { checkerId: null } : { familyMemberId });
-    return success(elders);
+    const status = searchParams.get("status"); // "Waiting" | "Assigned"
+
+    const filter = {};
+    if (familyMemberId) filter.familyMemberId = familyMemberId;
+    if (status) filter.status = status;
+
+    const elders = await Elder.find(filter).sort({ createdAt: -1 });
+    return NextResponse.json({ success: true, data: elders }, { status: 200 });
   } catch (error) {
-    return failure(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -22,10 +25,23 @@ export async function POST(request) {
   try {
     await connectDB();
     const body = await request.json();
-    requireFields(body, ["name", "age", "gender", "phone", "address", "emergencyContact", "familyMemberId"]);
-    const elder = await Elder.create(pick(body, ELDER_FIELDS));
-    return success(elder, 201);
+
+    if (body.address && !body.address.coordinates?.lat) {
+      const queryParts = [
+        body.address.road,
+        body.address.areaTahna,
+        body.address.city,
+        body.address.country || "Bangladesh",
+      ].filter(Boolean);
+      const coords = await geocodeAddress(queryParts.join(", "));
+      if (coords) {
+        body.address = { ...body.address, coordinates: coords };
+      }
+    }
+
+    const elder = await Elder.create(body);
+    return NextResponse.json({ success: true, data: elder }, { status: 201 });
   } catch (error) {
-    return failure(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -1,21 +1,27 @@
 import connectDB from "@/lib/mongodb";
-import { ApiError, assertObjectId, failure, pick, success } from "@/lib/api";
-import Checker from "@/models/Checker";
 import Elder from "@/models/Elder";
-import mongoose from "mongoose";
+import { NextResponse } from "next/server";
 
-const UPDATE_FIELDS = ["name", "age", "gender", "phone", "address", "bio", "medicalConditions", "mobilityNotes", "emergencyContact", "secondaryContact", "visitSchedule"];
-
-export async function GET(_request, context) {
+export async function GET(request, context) {
   try {
     await connectDB();
     const { id } = await context.params;
-    assertObjectId(id, "elder id");
+    const { searchParams } = new URL(request.url);
+    const familyMemberId = searchParams.get("familyMemberId");
+
     const elder = await Elder.findById(id);
-    if (!elder) throw new ApiError(404, "Elder not found");
-    return success(elder);
+    if (!elder) return NextResponse.json({ error: "Elder not found" }, { status: 404 });
+
+    // Optional relationship check, same trust model as the wellbeing routes:
+    // if a familyMemberId is supplied, it must match the elder's owner.
+    // Callers that don't pass one (admin/checker screens) are unaffected.
+    if (familyMemberId && elder.familyMemberId !== familyMemberId) {
+      return NextResponse.json({ error: "You do not have access to this elder's profile" }, { status: 403 });
+    }
+
+    return NextResponse.json({ success: true, data: elder }, { status: 200 });
   } catch (error) {
-    return failure(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -23,35 +29,23 @@ export async function PUT(request, context) {
   try {
     await connectDB();
     const { id } = await context.params;
-    assertObjectId(id, "elder id");
-    const updates = pick(await request.json(), UPDATE_FIELDS);
-    if (!Object.keys(updates).length) throw new ApiError(400, "No supported fields were provided");
-    const elder = await Elder.findByIdAndUpdate(id, updates, { returnDocument: "after", runValidators: true });
-    if (!elder) throw new ApiError(404, "Elder not found");
-    return success(elder);
+    const body = await request.json();
+    const elder = await Elder.findByIdAndUpdate(id, body, { new: true });
+    if (!elder) return NextResponse.json({ error: "Elder not found" }, { status: 404 });
+    return NextResponse.json({ success: true, data: elder }, { status: 200 });
   } catch (error) {
-    return failure(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-export async function DELETE(_request, context) {
-  await connectDB();
-  const session = await mongoose.startSession();
+export async function DELETE(request, context) {
   try {
+    await connectDB();
     const { id } = await context.params;
-    assertObjectId(id, "elder id");
-    let elder;
-    await session.withTransaction(async () => {
-      elder = await Elder.findByIdAndDelete(id, { session });
-      if (!elder) throw new ApiError(404, "Elder not found");
-      if (elder.checkerId) {
-        await Checker.updateOne({ _id: elder.checkerId }, { $pull: { assignedElders: elder._id } }, { session });
-      }
-    });
-    return success({ id, message: "Elder deleted" });
+    const elder = await Elder.findByIdAndDelete(id);
+    if (!elder) return NextResponse.json({ error: "Elder not found" }, { status: 404 });
+    return NextResponse.json({ success: true, message: "Elder deleted successfully" }, { status: 200 });
   } catch (error) {
-    return failure(error);
-  } finally {
-    await session.endSession();
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

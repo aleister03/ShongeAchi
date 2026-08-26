@@ -1,7 +1,6 @@
 import connectDB from "@/lib/mongodb";
 import Visit from "@/models/Visit";
-import { ApiError, assertObjectId, failure, success } from "@/lib/api";
-import Elder from "@/models/Elder";
+import { NextResponse } from "next/server";
 
 function getLevelLabel(visits, field) {
   const poor = visits.filter(v => v[field] === "Poor").length;
@@ -12,26 +11,26 @@ function getLevelLabel(visits, field) {
   return "Low";
 }
 
-export async function GET(_request, context) {
+export async function GET(request, context) {
   try {
     await connectDB();
     const { id } = await context.params;
-    assertObjectId(id, "elder id");
-    if (!await Elder.exists({ _id: id })) throw new ApiError(404, "Elder not found");
     const visits = await Visit.find({ elderId: id });
     if (visits.length === 0) {
-      return success({ message: "No visits found" });
+      return NextResponse.json({ success: true, data: { message: "No visits found" } }, { status: 200 });
     }
-    const breakdown = {
-      appetite: getLevelLabel(visits, "appetiteLevel"),
-      mobility: getLevelLabel(visits, "mobilityLevel"),
-      mood: getLevelLabel(visits, "moodLevel"),
-      missedVisits: visits.filter(v => v.status === "No Answer").length,
-      medicationMissed: visits.filter(v => !v.medicationTaken).length,
-      totalVisits: visits.length
-    };
-    return success(breakdown);
+    return NextResponse.json({
+      success: true,
+      data: {
+        appetite: getLevelLabel(visits, "appetiteLevel"),
+        mobility: getLevelLabel(visits, "mobilityLevel"),
+        mood: getLevelLabel(visits, "moodLevel"),
+        missedVisits: visits.filter(v => v.status === "No Answer").length,
+        medicationMissed: visits.filter(v => !v.medicationTaken).length,
+        totalVisits: visits.length,
+      }
+    }, { status: 200 });
   } catch (error) {
-    return failure(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -1,75 +1,83 @@
 import connectDB from "@/lib/mongodb";
-import { ApiError, assertObjectId, failure, pick, success } from "@/lib/api";
-import { serializeChecker } from "@/lib/checkers";
 import Checker from "@/models/Checker";
 import Elder from "@/models/Elder";
-import Payment from "@/models/Payment";
 import Visit from "@/models/Visit";
-import mongoose from "mongoose";
+import { NextResponse } from "next/server";
 
-const UPDATE_FIELDS = ["name", "serviceArea", "phone", "shift", "experienceYears", "maxWorkload", "verificationStatus", "active"];
-
-export async function GET(_request, context) {
+export async function GET(request, context) {
   try {
     await connectDB();
     const { id } = await context.params;
-    assertObjectId(id, "checker id");
-    const checker = await Checker.findById(id).populate("assignedElders", "name address visitSchedule concernStatus").lean();
-    if (!checker) throw new ApiError(404, "Checker not found");
-    const monthStart = new Date();
-    monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-    const [visits, payments] = await Promise.all([
-      Visit.find({ checkerId: id, visitDate: { $gte: monthStart } }).lean(),
-      Payment.find({ checkerId: id, status: "paid", paidAt: { $gte: monthStart } }).lean()
-    ]);
-    const scheduledVisits = visits.filter((visit) => visit.scheduledAt);
-    const onTime = scheduledVisits.filter((visit) => visit.completedAt && visit.completedAt <= visit.scheduledAt).length;
-    return success({ ...serializeChecker(checker), performance: {
-      visitsThisMonth: visits.length,
-      onTimeRate: scheduledVisits.length ? (onTime / scheduledVisits.length) * 100 : 0,
-      concernFlagsRaised: visits.filter((visit) => visit.status === "Concerned").length,
-      earnings: payments.reduce((sum, payment) => sum + payment.amount, 0)
-    } });
-  } catch (error) {
-    return failure(error);
-  }
-}
+    const checker = await Checker.findById(id);
+    if (!checker) return NextResponse.json({ error: "Checker not found" }, { status: 404 });
 
-export async function PATCH(request, context) {
-  try {
-    await connectDB();
-    const { id } = await context.params;
-    assertObjectId(id, "checker id");
-    const updates = pick(await request.json(), UPDATE_FIELDS);
-    if (!Object.keys(updates).length) throw new ApiError(400, "No supported fields were provided");
-    const existing = await Checker.findById(id).lean();
-    if (!existing) throw new ApiError(404, "Checker not found");
-    if (updates.maxWorkload !== undefined && updates.maxWorkload < existing.assignedElders.length) {
-      throw new ApiError(409, "Max workload cannot be below current workload");
-    }
-    const checker = await Checker.findByIdAndUpdate(id, updates, { returnDocument: "after", runValidators: true });
-    return success(serializeChecker(checker));
-  } catch (error) {
-    return failure(error);
-  }
-}
+    const assignedElders = await Elder.find({ assignedCheckerId: id }).select(
+      "name address visitSchedule status"
+    );
 
-export async function DELETE(_request, context) {
-  await connectDB();
-  const session = await mongoose.startSession();
-  try {
-    const { id } = await context.params;
-    assertObjectId(id, "checker id");
-    let checker;
-    await session.withTransaction(async () => {
-      checker = await Checker.findByIdAndDelete(id, { session });
-      if (!checker) throw new ApiError(404, "Checker not found");
-      await Elder.updateMany({ checkerId: id }, { $set: { checkerId: null } }, { session });
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const visitsThisMonth = await Visit.find({
+      checkerId: id,
+      visitDate: { $gte: startOfMonth },
     });
-    return success({ id, message: "Checker deleted" });
+
+    const concernFlags = visitsThisMonth.filter((v) => v.status === "Concerned").length;
+    const completed = visitsThisMonth.filter((v) => v.status !== "No Answer").length;
+    // NOTE: this is an approximation — "on-time" here means "visit was completed at all"
+    // (status !== "No Answer"), since scheduled-vs-actual visit timestamps aren't tracked yet.
+    // Swap this for a real punctuality calc once visits store a target arrival window.
+    const onTimeRate = visitsThisMonth.length
+      ? Math.round((completed / visitsThisMonth.length) * 1000) / 10
+      : 0;
+    const earnings = visitsThisMonth.length * (checker.ratePerVisit || 60);
+
+    const eldersWithStatus = await Promise.all(
+      assignedElders.map(async (elder) => {
+        const lastVisit = await Visit.findOne({ elderId: elder._id }).sort({ visitDate: -1 });
+        return {
+          _id: elder._id,
+          name: elder.name,
+          address: elder.address,
+          visitSchedule: elder.visitSchedule,
+          lastVisitStatus: lastVisit?.status || "No visits yet",
+        };
+      })
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          checker,
+          capacity: { assigned: assignedElders.length, max: checker.maxCapacity },
+          performance: {
+            visitsThisMonth: visitsThisMonth.length,
+            onTimeRate,
+            concernFlags,
+            earnings,
+          },
+          assignedElders: eldersWithStatus,
+        },
+      },
+      { status: 200 }
+    );
   } catch (error) {
-    return failure(error);
-  } finally {
-    await session.endSession();
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PUT(request, context) {
+  try {
+    await connectDB();
+    const { id } = await context.params;
+    const body = await request.json();
+    const checker = await Checker.findByIdAndUpdate(id, body, { new: true });
+    if (!checker) return NextResponse.json({ error: "Checker not found" }, { status: 404 });
+    return NextResponse.json({ success: true, data: checker }, { status: 200 });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
