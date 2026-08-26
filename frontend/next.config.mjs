@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false,
   async rewrites() {
     const backendUrl = process.env.BACKEND_URL || "http://localhost:1078";
     return [

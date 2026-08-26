@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import Navbar from "../components/Navbar";
 import { api } from "@/lib/apiClient";
 
@@ -12,6 +11,16 @@ const CATEGORY_STYLES = {
 
 const STORAGE_KEY = "shongeachi_checker_id";
 
+// ---------------------------------------------------------------------
+// NOTE: there is no checker login/session system in this project yet
+// (checkers have a passwordHash from signup, but no authenticate route).
+// Until that exists, this page asks the checker to enter their Checker ID
+// once and remembers it in this browser via localStorage — the same
+// caller-supplied-id trust model the backend routes already use. Swap
+// this gate out for a real login flow once one exists; nothing else on
+// this page needs to change, since the backend already checks the
+// assignment relationship server-side regardless of how checkerId got here.
+// ---------------------------------------------------------------------
 function CheckerIdGate({ onSubmit }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
@@ -23,6 +32,8 @@ function CheckerIdGate({ onSubmit }) {
       return;
     }
     try {
+      // Confirms the id actually belongs to a real, approved checker before
+      // saving it, so we don't send someone into a page full of 403s.
       await api.get(`/api/wellbeing/checker/${value.trim()}`);
       localStorage.setItem(STORAGE_KEY, value.trim());
       onSubmit(value.trim());
@@ -56,6 +67,7 @@ function CheckerIdGate({ onSubmit }) {
   );
 }
 
+/** One assigned elder's score, with an inline form to submit an override. */
 function AssignedElderCard({ elder, checkerId, onUpdated }) {
   const [editing, setEditing] = useState(false);
   const [scoreInput, setScoreInput] = useState(elder.concernScore);
@@ -107,27 +119,15 @@ function AssignedElderCard({ elder, checkerId, onUpdated }) {
         </div>
       )}
 
-      <div className="flex items-center gap-2 flex-wrap">
-        {!editing ? (
-          <button
-            onClick={() => setEditing(true)}
-            className="px-4 py-2 rounded-full bg-[#e6f2dd] text-[#2a5a4a] text-xs font-medium hover:bg-[#d7ecc9] transition"
-          >
-            Update concern score
-          </button>
-        ) : null}
-        {/* --- Communication System --- */}
-        <Link
-          href={`/checker/messages/${elder.elderId}`}
-          className="px-4 py-2 rounded-full bg-[#eef6ea] text-[#2a5a4a] text-xs font-medium hover:bg-[#e0f0d5] transition"
+      {!editing ? (
+        <button
+          onClick={() => setEditing(true)}
+          className="px-4 py-2 rounded-full bg-[#e6f2dd] text-[#2a5a4a] text-xs font-medium hover:bg-[#d7ecc9] transition"
         >
-          Message family
-        </Link>
-        {/* ------------------------------------------------------------------ */}
-      </div>
-
-      {editing && (
-        <div className="border-t border-gray-100 pt-4 mt-4">
+          Update concern score
+        </button>
+      ) : (
+        <div className="border-t border-gray-100 pt-4 mt-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Score (0–100)</label>
           <input
             type="number"
@@ -167,6 +167,8 @@ function AssignedElderCard({ elder, checkerId, onUpdated }) {
   );
 }
 
+// apiClient.js only exposes get/post/put/del — PATCH isn't wired up there.
+// Rather than edit the shared client for one call, send it directly here.
 async function patchConcernScore(elderId, body) {
   const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:1078";
   const res = await fetch(`${API_URL}/api/wellbeing/${elderId}/concern-score`, {
@@ -192,6 +194,7 @@ export default function CheckerView() {
   useEffect(() => {
     if (!checkerId) return;
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkerId]);
 
   async function load() {

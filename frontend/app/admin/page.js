@@ -106,21 +106,16 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
 
+  // --- NEW: Automated Escalation Engine (admin-triggered sweep) ---
   const [escalations, setEscalations] = useState([]);
   const [escalationsLoading, setEscalationsLoading] = useState(true);
   const [runningCheck, setRunningCheck] = useState(false);
   const [lastRunResult, setLastRunResult] = useState(null);
-  // --- NEW: Platform Configuration — disaster mode banner ---
-  const [disasterModeActive, setDisasterModeActive] = useState(false);
-  // ------------------------------------------------------------
+  // ------------------------------------------------------------------
 
   useEffect(() => {
     load();
-    loadEscalations();
-    api
-      .get("/api/platform-config")
-      .then((res) => setDisasterModeActive(!!res.data.disasterMode?.enabled))
-      .catch(() => {});
+    loadEscalations(); // NEW
   }, []);
 
   async function load() {
@@ -135,6 +130,7 @@ export default function AdminDashboard() {
     }
   }
 
+  // --- NEW: Automated Escalation Engine handlers ---
   async function loadEscalations() {
     setEscalationsLoading(true);
     try {
@@ -153,7 +149,6 @@ export default function AdminDashboard() {
     try {
       const res = await api.post("/api/escalations", {});
       setLastRunResult(res.data);
-      setDisasterModeActive(!!res.data.disasterModeActive);
       loadEscalations();
     } catch (err) {
       console.error(err);
@@ -180,6 +175,7 @@ export default function AdminDashboard() {
       console.error(err);
     }
   }
+  // ------------------------------------------------------------------
 
   const elders = data?.elders || [];
   const filtered = activeTab === "all" ? elders : elders.filter((e) => e.category === activeTab);
@@ -188,19 +184,6 @@ export default function AdminDashboard() {
     <main className="min-h-screen" style={{ background: "#FBF3D9" }}>
       <AdminNavbar />
       <div className="px-10 py-10">
-        {/* --- NEW: Disaster Mode banner, driven by Platform Configuration --- */}
-        {disasterModeActive && (
-          <div className="mb-6 bg-red-500 text-white rounded-2xl px-6 py-4 flex items-center justify-between">
-            <span className="font-semibold">
-              ⚠ Disaster Mode is active — every elder&apos;s escalation window is currently tightened platform-wide.
-            </span>
-            <a href="/admin/platform-config" className="text-sm underline hover:no-underline">
-              Manage in Settings
-            </a>
-          </div>
-        )}
-        {/* ------------------------------------------------------------------- */}
-
         <h1 className="text-3xl font-bold text-[#1a1a1a] mb-1">AI concern metrics</h1>
         <p className="text-gray-500 mb-8">
           Every elder&apos;s wellbeing trend, built from visit history rather than a single visit
@@ -225,6 +208,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* --- NEW: Automated Escalation Engine panel --- */}
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -287,6 +271,7 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
+        {/* ------------------------------------------------ */}
 
         <div className="flex items-center gap-3 mb-6">
           {TABS.map((tab) => {

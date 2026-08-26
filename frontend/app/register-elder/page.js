@@ -11,6 +11,7 @@ import RELATIONSHIPS from "@/lib/relationshipsList";
 const WEEK_DAYS = ["SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI"];
 // 11-digit BD mobile number starting with one of these operator prefixes.
 const PHONE_REGEX = /^(017|013|018|019|014)\d{8}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_HINT = "11 digits, starting with 017, 013, 018, 019, or 014";
 
 const inputClass =
@@ -35,13 +36,14 @@ export default function RegisterElder() {
   const [address, setAddress] = useState({
     flatFloor: "", houseNo: "", road: "", areaTahna: "", city: "", postalCode: "", country: "Bangladesh",
   });
-  const [emergencyContact, setEmergencyContact] = useState({ name: "", phone: "", relationship: "", note: "" });
-  const [secondaryContact, setSecondaryContact] = useState({ name: "", phone: "", relationship: "", note: "" });
+  const [emergencyContact, setEmergencyContact] = useState({ name: "", phone: "", email: "", relationship: "", note: "" });
+  const [secondaryContact, setSecondaryContact] = useState({ name: "", phone: "", email: "", relationship: "", note: "" });
   const [medicalConditions, setMedicalConditions] = useState([]);
   const [conditionInput, setConditionInput] = useState("");
   const [mobilityNotes, setMobilityNotes] = useState("");
   const [days, setDays] = useState([]);
   const [escalateAfterHours, setEscalateAfterHours] = useState(4);
+  const [scheduledTime, setScheduledTime] = useState("10:00");
 
   function toggleDay(day) {
     setDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
@@ -81,8 +83,12 @@ export default function RegisterElder() {
       return false;
     }
     if (step === 2) {
-      if (!emergencyContact.name || !emergencyContact.phone || !emergencyContact.relationship) {
-        setError("Primary emergency contact is required.");
+      if (!emergencyContact.name || !emergencyContact.phone || !emergencyContact.email || !emergencyContact.relationship) {
+        setError("Primary emergency contact is required, including email.");
+        return false;
+      }
+      if (!EMAIL_REGEX.test(emergencyContact.email)) {
+        setError("Please enter a valid email for the primary emergency contact.");
         return false;
       }
       if (!PHONE_REGEX.test(emergencyContact.phone)) {
@@ -121,7 +127,8 @@ export default function RegisterElder() {
         medicalConditions,
         mobilityNotes,
         familyMemberId: session?.user?.id || "demo-family-1",
-        visitSchedule: { days, escalateAfterHours: Number(escalateAfterHours) },
+        familyMemberEmail: session?.user?.email || "",
+        visitSchedule: { days, scheduledTime, escalateAfterHours: Number(escalateAfterHours) },
       });
       router.push(`/elder/${res.data._id}/profile`);
     } catch (err) {
@@ -263,9 +270,16 @@ export default function RegisterElder() {
         {step === 2 && (
           <div className="flex flex-col gap-6">
             <div>
-              <h2 className="text-2xl font-bold text-[#2a5a4a] mb-4">Primary Emergency Contact</h2>
+                            <h2 className="text-xl font-bold text-[#2a5a4a] mb-4">Primary Emergency Contact*</h2>
               <div className="flex flex-col gap-4">
                 <input placeholder="Name" className={inputClass} value={emergencyContact.name} onChange={(e) => setEmergencyContact({ ...emergencyContact, name: e.target.value })} />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  className={inputClass}
+                  value={emergencyContact.email}
+                  onChange={(e) => setEmergencyContact({ ...emergencyContact, email: e.target.value })}
+                />
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <input
@@ -293,6 +307,13 @@ export default function RegisterElder() {
               <h2 className="text-xl font-bold text-[#2a5a4a] mb-4">Secondary Contact (optional)</h2>
               <div className="flex flex-col gap-4">
                 <input placeholder="Name" className={inputClass} value={secondaryContact.name} onChange={(e) => setSecondaryContact({ ...secondaryContact, name: e.target.value })} />
+                <input
+                  type="email"
+                  placeholder="Email (optional)"
+                  className={inputClass}
+                  value={secondaryContact.email}
+                  onChange={(e) => setSecondaryContact({ ...secondaryContact, email: e.target.value })}
+                />
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <input
@@ -376,6 +397,15 @@ export default function RegisterElder() {
                   </button>
                 ))}
               </div>
+              <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
+                Expected visit time
+                <input
+                  type="time"
+                  className="border border-gray-300 rounded-lg px-3 py-1.5"
+                  value={scheduledTime}
+                  onChange={(e) => setScheduledTime(e.target.value)}
+                />
+              </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 Escalate if no check-in within
                 <input
@@ -385,7 +415,7 @@ export default function RegisterElder() {
                   value={escalateAfterHours}
                   onChange={(e) => setEscalateAfterHours(e.target.value)}
                 />
-                hours of scheduled visit
+                hours of the expected time
               </div>
             </div>
           </div>
