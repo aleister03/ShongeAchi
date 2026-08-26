@@ -1,10 +1,5 @@
 import mongoose from "mongoose";
 
-// One record per active (or resolved) escalation raised by the Automated
-// Escalation Engine (see backend/lib/escalationEngine.js). Elder/checker
-// names are denormalized onto the document at creation time so the admin
-// escalation list renders without extra joins — same pattern the
-// wellbeing dashboard uses for checkerName.
 const EscalationSchema = new mongoose.Schema({
   elderId: { type: mongoose.Schema.Types.ObjectId, ref: "Elder", required: true },
   elderName: { type: String, required: true },
@@ -17,10 +12,6 @@ const EscalationSchema = new mongoose.Schema({
   relatedVisitId: { type: mongoose.Schema.Types.ObjectId, ref: "Visit", default: null },
 
   status: { type: String, enum: ["Open", "Cleared"], default: "Open" },
-  // Simple audit trail of what the automation "did" for this escalation.
-  // Real notification dispatch (email/in-app) is a separate feature
-  // (Module 3, Multi-channel notification system) — this just records
-  // that the step happened, so the timeline is visible either way.
   escalationSteps: [
     {
       stage: { type: String, required: true },

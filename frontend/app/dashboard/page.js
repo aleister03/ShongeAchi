@@ -20,9 +20,9 @@ function TrendLabel({ trendDetail }) {
   return <span className={`font-medium ${color}`}>{trendDetail.label} over the last {trendDetail.weeks} week(s)</span>;
 }
 
-/** Read-only concern-score card for one elder. Family members can view, never edit. */
+
 function ElderConcernCard({ elder, familyMemberId }) {
-  const [score, setScore] = useState(null);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -30,10 +30,10 @@ function ElderConcernCard({ elder, familyMemberId }) {
     let cancelled = false;
     async function load() {
       try {
-        const res = await api.get(`/api/wellbeing/${elder._id}/concern-score?familyMemberId=${familyMemberId}`);
-        if (!cancelled) setScore(res.data);
+        const res = await api.get(`/api/elders/${elder._id}/summary?familyMemberId=${familyMemberId}`);
+        if (!cancelled) setSummary(res.data);
       } catch (err) {
-        if (!cancelled) setError(err.message || "Couldn't load concern score");
+        if (!cancelled) setError(err.message || "Couldn't load this elder's dashboard");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -48,42 +48,70 @@ function ElderConcernCard({ elder, familyMemberId }) {
     <div className="bg-white rounded-2xl shadow-sm p-6">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="text-lg font-semibold text-[#1a1a1a]">{elder.name}</p>
+          <Link
+            href={`/elder/${elder._id}/profile`}
+            className="text-lg font-semibold text-[#1a1a1a] hover:text-[#2a7a5a] hover:underline transition"
+          >
+            {elder.name}
+          </Link>
           <p className="text-xs text-gray-400">
             {elder.status === "Assigned" ? "Checker assigned" : "Waiting on checker assignment"}
           </p>
         </div>
         {!loading && !error && (
-          <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${CATEGORY_STYLES[score.category]}`}>
-            {score.concernScore}% · {score.category}
+          <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${CATEGORY_STYLES[summary.category]}`}>
+            {summary.concernScore}% · {summary.category}
           </span>
         )}
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-400">Loading concern score…</p>
+        <p className="text-sm text-gray-400">Loading…</p>
       ) : error ? (
         <p className="text-sm text-red-500">{error}</p>
       ) : (
         <>
-          <p className="text-sm text-gray-600 mb-3">
-            <TrendLabel trendDetail={score.trendDetail} />
-          </p>
-          {score.override && (
-            <div className="mb-3 text-xs bg-[#fff9e8] text-amber-700 rounded-lg px-3 py-2">
-              Manually adjusted by the assigned checker
-              {score.override.note ? `: "${score.override.note}"` : "."}
-            </div>
+          {summary.openEscalationCount > 0 && (
+            <Link
+              href={`/elder/${elder._id}/wellbeing`}
+              className="block mb-3 text-sm bg-red-50 text-red-600 rounded-lg px-3 py-2 hover:bg-red-100 transition"
+            >
+              {summary.openEscalationCount} open escalation{summary.openEscalationCount > 1 ? "s" : ""} —{" "}
+              {summary.latestEscalation?.reason}
+            </Link>
           )}
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Based on</p>
-            <ul className="text-sm text-gray-700 list-disc list-inside">
-              {score.contributingFactors.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
+
+          <p className="text-sm text-gray-600 mb-3">
+            <TrendLabel trendDetail={summary.trendDetail} />
+          </p>
+
+          <div className="grid grid-cols-3 gap-3 text-sm">
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Today</p>
+              {summary.todayVisit ? (
+                <p className="text-gray-800">
+                  {summary.todayVisit.status} at{" "}
+                  {new Date(summary.todayVisit.visitDate).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                </p>
+              ) : (
+                <p className="text-gray-400">No visit yet</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Checker</p>
+              <p className="text-gray-800">{summary.checker?.name || "Unassigned"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Next visit</p>
+              <p className="text-gray-800">
+                {summary.upcomingVisit
+                  ? summary.upcomingVisit.isToday
+                    ? "Today"
+                    : summary.upcomingVisit.dayName
+                  : "Not scheduled"}
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-gray-400 mt-3">{score.totalVisits} visit(s) recorded so far</p>
         </>
       )}
     </div>

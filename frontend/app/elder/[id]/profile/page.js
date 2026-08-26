@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import ElderNavbar from "@/app/components/ElderNavbar";
 import { api } from "@/lib/apiClient";
+import Link from "next/link";
 
 function InfoRow({ label, value }) {
   return (
@@ -54,7 +55,13 @@ export default function ElderProfile() {
           <p className="text-gray-400 text-sm">Loading…</p>
         ) : elder ? (
           <div className="flex flex-col gap-6">
-            <div className="bg-white rounded-2xl shadow-sm p-8 flex items-center gap-6">
+            <div className="bg-white rounded-2xl shadow-sm p-8 flex items-center gap-6 relative">
+              <Link
+                href={`/elder/${id}/edit`}
+                className="absolute top-6 right-6 px-4 py-2 rounded-full border border-gray-300 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
+              >
+                Edit
+              </Link>
               <div className="w-20 h-20 rounded-full bg-[#e6f2dd] text-[#2a7a5a] flex items-center justify-center text-2xl font-bold">
                 {elder.name?.charAt(0)?.toUpperCase() || "?"}
               </div>

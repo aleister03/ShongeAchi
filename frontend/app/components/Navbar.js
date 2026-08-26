@@ -2,6 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
+import NotificationBell from "@/app/components/NotificationBell";
 
 export default function Navbar({ variant = "home" }) {
   const { data: session } = useSession();
@@ -26,6 +27,14 @@ export default function Navbar({ variant = "home" }) {
         {session && (
           <Link href="/dashboard" className={linkClass}>Dashboard</Link>
         )}
+        {session && (
+          <div className={isHome ? "bg-white/90 rounded-full" : ""}>
+            <NotificationBell />
+          </div>
+        )}
+      </div>
+
+      <div className="hidden md:flex items-center gap-4">
         {session ? (
           <button onClick={() => signOut({ callbackUrl: "/" })} className={linkClass}>
             Sign Out
@@ -33,14 +42,13 @@ export default function Navbar({ variant = "home" }) {
         ) : (
           <Link href="/signin" className={linkClass}>Sign In</Link>
         )}
+        <Link
+          href="/register-elder"
+          className={`px-5 py-2 rounded-full border text-sm font-medium transition hover:opacity-80 ${isHome ? "border-white text-white hover:bg-white/20" : "border-[#2a7a5a] text-[#2a7a5a] hover:bg-[#e6f2dd]"}`}
+        >
+          Register an Elder
+        </Link>
       </div>
-
-      <Link
-        href="/register-elder"
-        className={`hidden md:block px-5 py-2 rounded-full border text-sm font-medium transition hover:opacity-80 ${isHome ? "border-white text-white hover:bg-white/20" : "border-[#2a7a5a] text-[#2a7a5a] hover:bg-[#e6f2dd]"}`}
-      >
-        Register an Elder
-      </Link>
     </nav>
   );
 }

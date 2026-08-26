@@ -32,12 +32,17 @@ export default function VisitHistory() {
     }
   }, [status, router, id]);
 
-  useEffect(() => {
-    if (status !== "authenticated") return;
+  function loadVisits() {
     api
       .get(`/api/wellbeing/${id}/visits`)
       .then((res) => setVisits(res.data))
       .catch((err) => setError(err.message || "Couldn't load visit history."));
+  }
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    loadVisits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, status]);
 
   if (status === "loading" || status === "unauthenticated") {
@@ -52,7 +57,9 @@ export default function VisitHistory() {
     <main className="min-h-screen" style={{ background: "#FBF3D9" }}>
       <ElderNavbar elderId={id} active="visits" />
       <div className="px-10 py-10 max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-[#1a1a1a] mb-6">Visit History</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-[#1a1a1a]">Visit History</h1>
+        </div>
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
         <div className="bg-white rounded-2xl shadow-sm p-8">
           {visits === null ? (

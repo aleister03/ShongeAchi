@@ -3,8 +3,8 @@ import Visit from "@/models/Visit";
 import Elder from "@/models/Elder";
 import Checker from "@/models/Checker";
 import { computeConcernMetrics, applyOverride } from "@/lib/concernScore";
-import { getPlatformConfig } from "@/lib/platformConfig";
 import { NextResponse } from "next/server";
+
 
 export async function GET(request, context) {
   try {
@@ -25,32 +25,35 @@ export async function GET(request, context) {
     if (!elder) return NextResponse.json({ error: "Elder not found" }, { status: 404 });
 
     if (familyMemberId) {
+      // A family member may only view the elder THEY registered.
       if (elder.familyMemberId !== familyMemberId) {
         return NextResponse.json({ error: "You do not have access to this elder's concern score" }, { status: 403 });
       }
     } else if (checkerId) {
+      // A checker may only view an elder currently ASSIGNED to them.
       if (!elder.assignedCheckerId || String(elder.assignedCheckerId) !== String(checkerId)) {
         return NextResponse.json({ error: "This elder is not assigned to you" }, { status: 403 });
       }
     }
-    const platformConfig = await getPlatformConfig();
-    const thresholds = platformConfig.concernScoreThresholds;
 
     const visits = await Visit.find({ elderId: id }).sort({ visitDate: 1 });
-    const metrics = applyOverride(computeConcernMetrics(visits, new Date(), thresholds), elder, thresholds);
+    const metrics = applyOverride(computeConcernMetrics(visits), elder);
 
     return NextResponse.json(
       {
         success: true,
         data: {
+          // Original fields, unchanged, so any existing caller keeps working.
           concernScore: metrics.concernScore,
           trend: metrics.trend.direction === "up" ? "Declining" : metrics.trend.direction === "down" ? "Improving" : "Stable",
           totalVisits: visits.length,
           completedVisits: visits.filter((v) => v.status !== "No Answer").length,
           missedVisits: visits.filter((v) => v.status === "No Answer").length,
+          // Fields added for the AI Concern Metrics feature.
           category: metrics.category,
           trendDetail: metrics.trend,
           contributingFactors: metrics.contributingFactors,
+          // Present only if a checker has manually overridden the computed score.
           override: metrics.override,
         },
       },
@@ -60,6 +63,7 @@ export async function GET(request, context) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
 
 export async function PATCH(request, context) {
   try {
@@ -82,10 +86,13 @@ export async function PATCH(request, context) {
     const elder = await Elder.findById(id);
     if (!elder) return NextResponse.json({ error: "Elder not found" }, { status: 404 });
 
+    // Relationship check: this elder must actually be assigned to this checker.
     if (!elder.assignedCheckerId || String(elder.assignedCheckerId) !== String(checkerId)) {
       return NextResponse.json({ error: "This elder is not assigned to you" }, { status: 403 });
     }
 
+    // Identity/status check: the checker must exist and be an approved,
+    // active checker — not a pending or rejected applicant.
     const checker = await Checker.findById(checkerId);
     if (!checker) return NextResponse.json({ error: "Checker not found" }, { status: 404 });
     if (checker.applicationStatus !== "Approved") {
@@ -100,11 +107,8 @@ export async function PATCH(request, context) {
     };
     await elder.save();
 
-    const platformConfig = await getPlatformConfig();
-    const thresholds = platformConfig.concernScoreThresholds;
-
     const visits = await Visit.find({ elderId: id }).sort({ visitDate: 1 });
-    const metrics = applyOverride(computeConcernMetrics(visits, new Date(), thresholds), elder, thresholds);
+    const metrics = applyOverride(computeConcernMetrics(visits), elder);
 
     return NextResponse.json(
       {

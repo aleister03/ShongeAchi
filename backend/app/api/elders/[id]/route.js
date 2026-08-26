@@ -29,9 +29,17 @@ export async function PUT(request, context) {
   try {
     await connectDB();
     const { id } = await context.params;
+    const { searchParams } = new URL(request.url);
+    const familyMemberId = searchParams.get("familyMemberId");
     const body = await request.json();
+
+    const existing = await Elder.findById(id);
+    if (!existing) return NextResponse.json({ error: "Elder not found" }, { status: 404 });
+    if (familyMemberId && existing.familyMemberId !== familyMemberId) {
+      return NextResponse.json({ error: "You do not have access to edit this elder's profile" }, { status: 403 });
+    }
+
     const elder = await Elder.findByIdAndUpdate(id, body, { new: true });
-    if (!elder) return NextResponse.json({ error: "Elder not found" }, { status: 404 });
     return NextResponse.json({ success: true, data: elder }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

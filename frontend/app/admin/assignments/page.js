@@ -1,10 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import AdminNavbar from "../../components/AdminNavbar";
 import { api } from "@/lib/apiClient";
-
-const AssignmentMap = dynamic(() => import("../../components/AssignmentMap"), { ssr: false });
 
 export default function IntelligentAssignment() {
   const [waiting, setWaiting] = useState([]);
@@ -44,8 +41,6 @@ export default function IntelligentAssignment() {
     setRecommendations([]);
     loadWaiting();
   }
-
-  const visibleRecommendations = recommendations.filter((r) => !rejected.includes(r.checker._id));
 
   return (
     <main className="min-h-screen" style={{ background: "#FBF3D9" }}>
@@ -100,46 +95,41 @@ export default function IntelligentAssignment() {
                   </span>
                 </div>
 
-                {/* --- NEW: OpenStreetMap/Leaflet view of the elder + candidate checkers --- */}
-                <div className="mb-6">
-                  <AssignmentMap elder={selected} recommendations={visibleRecommendations} />
-                </div>
-                {/* ------------------------------------------------------------------------- */}
-
                 <div className="flex flex-col gap-4">
                   {loadingRecs ? (
                     <p className="text-sm text-gray-400">Finding the best checkers...</p>
-                  ) : visibleRecommendations.length === 0 ? (
+                  ) : recommendations.filter((r) => !rejected.includes(r.checker._id)).length === 0 ? (
                     <p className="text-sm text-gray-400">No available checkers found nearby.</p>
                   ) : (
-                    visibleRecommendations.map((rec) => (
-                      <div key={rec.checker._id} className="flex items-center justify-between bg-[#f0f7ec] rounded-xl px-5 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-[#fdf0c8]" />
-                          <div>
-                            <p className="font-medium text-[#1a1a1a]">{rec.checker.name}</p>
-                            <p className="text-xs text-gray-500">
-                              {rec.checker.serviceArea} · {rec.checker.experienceYears} yrs · {rec.assignedCount}/{rec.checker.maxCapacity} assigned · match {rec.score}%
-                              {rec.distanceKm != null && <> · {rec.distanceKm.toFixed(1)} km away</>}
-                            </p>
+                    recommendations
+                      .filter((r) => !rejected.includes(r.checker._id))
+                      .map((rec) => (
+                        <div key={rec.checker._id} className="flex items-center justify-between bg-[#f0f7ec] rounded-xl px-5 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-[#fdf0c8]" />
+                            <div>
+                              <p className="font-medium text-[#1a1a1a]">{rec.checker.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {rec.checker.serviceArea} · {rec.checker.experienceYears} yrs · {rec.assignedCount}/{rec.checker.maxCapacity} assigned · match {rec.score}%
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => approve(rec.checker._id)}
+                              className="px-5 py-2 rounded-full bg-[#4a8a5a] text-white text-sm font-medium hover:bg-[#3a7248] transition"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => reject(rec.checker._id)}
+                              className="px-5 py-2 rounded-full bg-[#e8a2a2] text-white text-sm font-medium hover:bg-[#dc8b8b] transition"
+                            >
+                              Reject
+                            </button>
                           </div>
                         </div>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => approve(rec.checker._id)}
-                            className="px-5 py-2 rounded-full bg-[#4a8a5a] text-white text-sm font-medium hover:bg-[#3a7248] transition"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => reject(rec.checker._id)}
-                            className="px-5 py-2 rounded-full bg-[#e8a2a2] text-white text-sm font-medium hover:bg-[#dc8b8b] transition"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                      ))
                   )}
                 </div>
               </>

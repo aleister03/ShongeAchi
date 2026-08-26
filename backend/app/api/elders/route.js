@@ -1,6 +1,7 @@
+// backend/app/api/elders/route.js
 import connectDB from "@/lib/mongodb";
 import Elder from "@/models/Elder";
-import { geocodeAddress } from "@/lib/geo";
+import { sendEmail } from "@/lib/mailer";
 import { NextResponse } from "next/server";
 
 export async function GET(request) {
@@ -25,21 +26,26 @@ export async function POST(request) {
   try {
     await connectDB();
     const body = await request.json();
+    const elder = await Elder.create(body);
 
-    if (body.address && !body.address.coordinates?.lat) {
-      const queryParts = [
-        body.address.road,
-        body.address.areaTahna,
-        body.address.city,
-        body.address.country || "Bangladesh",
-      ].filter(Boolean);
-      const coords = await geocodeAddress(queryParts.join(", "));
-      if (coords) {
-        body.address = { ...body.address, coordinates: coords };
+    // Best-effort — an email failure must never block elder creation, so
+    // it's wrapped separately and only logged if it goes wrong.
+    if (elder.familyMemberEmail) {
+      try {
+        await sendEmail({
+          to: elder.familyMemberEmail,
+          subject: `Shonge Achi: Profile created for ${elder.name}`,
+          body:
+            `A new elder profile for ${elder.name} has been created on Shonge Achi.\n\n` +
+            `You'll receive an alert here whenever a scheduled check-in is missed or a checker ` +
+            `flags a concern.\n\n` +
+            `— Shonge Achi`,
+        });
+      } catch (emailErr) {
+        console.error("[elders] Failed to send registration email:", emailErr);
       }
     }
 
-    const elder = await Elder.create(body);
     return NextResponse.json({ success: true, data: elder }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -2,13 +2,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
+import NotificationBell from "@/app/components/NotificationBell";
 
 const TABS = [
   { key: "profile", label: "Profile" },
   { key: "visits", label: "Visit History" },
   { key: "wellbeing", label: "Wellbeing History" },
   { key: "checkers", label: "Checkers" },
-  { key: "messages", label: "Messages" },
 ];
 
 export default function ElderNavbar({ elderId, active }) {
@@ -35,12 +35,15 @@ export default function ElderNavbar({ elderId, active }) {
         ))}
       </div>
 
-      <button
-        onClick={() => signOut({ callbackUrl: "/" })}
-        className="px-5 py-2 rounded-full border border-gray-300 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
-      >
-        Log out
-      </button>
+      <div className="flex items-center gap-3">
+        <NotificationBell />
+        <button
+          onClick={() => signOut({ callbackUrl: "/" })}
+          className="px-5 py-2 rounded-full border border-gray-300 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
+        >
+          Log out
+        </button>
+      </div>
     </nav>
   );
 }

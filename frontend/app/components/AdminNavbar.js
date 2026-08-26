@@ -8,7 +8,6 @@ const links = [
   { href: "/admin/checkers", label: "Checkers" },
   { href: "/admin/elders", label: "Elders" },
   { href: "/admin/subscriptions", label: "Subscriptions" },
-  { href: "/admin/platform-config", label: "Settings" },
 ];
 
 export default function AdminNavbar() {
