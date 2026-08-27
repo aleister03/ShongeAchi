@@ -20,9 +20,16 @@
 import SSLCommerzPayment from "sslcommerz-lts";
 import { ApiError } from "./api.js";
 
+// .env values frequently arrive wrapped in quotes or padded with whitespace, and
+// SSLCommerz rejects a quoted store id with the same "Store Credential Error" it
+// gives for a genuinely wrong one — which is very hard to diagnose. Strip both.
+function cleanCredential(value) {
+  return String(value ?? "").trim().replace(/^['"]|['"]$/g, "").trim();
+}
+
 function config() {
-  const storeId = process.env.SSLCOMMERZ_STORE_ID;
-  const storePassword = process.env.SSLCOMMERZ_STORE_PASSWORD;
+  const storeId = cleanCredential(process.env.SSLCOMMERZ_STORE_ID);
+  const storePassword = cleanCredential(process.env.SSLCOMMERZ_STORE_PASSWORD);
   // Sandbox unless explicitly disabled, so a missing variable can never
   // accidentally point at the live gateway.
   const sandbox = process.env.SSLCOMMERZ_SANDBOX !== "false";
@@ -42,6 +49,19 @@ export function isGatewayConfigured() {
 
 export function gatewayMode() {
   return config().sandbox ? "sandbox" : "live";
+}
+
+// SSLCommerz returns the same "Store Credential Error Or Store is De-active" for a
+// wrong password, a de-activated store, AND for using sandbox credentials against the
+// live endpoint (or vice versa) — which is by far the most common cause and the least
+// obvious. This appends what mode we actually used so the mismatch is visible.
+function credentialHint(reason) {
+  if (!/credential|de-?active/i.test(String(reason))) return "";
+  const { storeId, sandbox } = config();
+  const masked = storeId ? `${storeId.slice(0, 4)}…(${storeId.length} chars)` : "(not set)";
+  return ` — sent store_id ${masked} to the ${sandbox ? "SANDBOX" : "LIVE"} gateway.`
+    + ` Check SSLCOMMERZ_STORE_ID / SSLCOMMERZ_STORE_PASSWORD, and that SSLCOMMERZ_SANDBOX matches`
+    + ` the kind of credentials you have (sandbox credentials only work with SSLCOMMERZ_SANDBOX=true).`;
 }
 
 export function frontendUrl() {
@@ -184,7 +204,7 @@ export async function initSession({ tranId, amount, months, elder, customer }) {
 
   if (response?.status !== "SUCCESS" || !gatewayPageUrl) {
     const reason = response?.failedreason || response?.status || "unknown error";
-    throw new ApiError(502, `Payment gateway rejected the session: ${reason}`);
+    throw new ApiError(502, `Payment gateway rejected the session: ${reason}${credentialHint(reason)}`);
   }
 
   // What the gateway says it will offer, so the checkout screen can name real
