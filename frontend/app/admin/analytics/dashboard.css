@@ -1,0 +1,30 @@
+/* Dashboard-only additions. Everything else reuses admin/checkers/checkers.css, so
+   these rules only cover layout the existing sheet has no equivalent for. Values are
+   taken from that sheet (28px card radius family, #fff surfaces, #ddd rules,
+   #087d72 teal, #555 muted) so the page reads as part of the same app. */
+
+/* Two-up section grid, collapsing at the same 800px breakpoint the admin CSS uses. */
+.dashGrid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}
+.dashPanel{background:#fff;border-radius:24px;padding:24px;box-shadow:0 2px 12px #bcba8920}
+.dashPanel h2{font-size:17px;font-weight:700}
+.dashPanel .hint{font-size:12px;color:#777;margin:4px 0 14px}
+
+/* Section heading with a "view all" link on the right. */
+.panelTop{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.panelTop a{font-size:12px;color:#087d72;white-space:nowrap}
+
+/* A capacity alert: full checker on the left, suggested colleague on the right. */
+.alertRow{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid #ddd}
+.alertRow:last-child{border-bottom:none}
+.alertRow .to{text-align:right}
+.arrow{color:#087d72;font-size:18px;flex-shrink:0}
+
+/* Unavailable metric (e.g. subscriptions with no data model behind them). */
+.stat.unavailable strong{color:#999;font-size:15px;font-weight:500}
+
+@media(max-width:800px){
+  .dashGrid{grid-template-columns:1fr}
+  .alertRow{flex-wrap:wrap}
+  .alertRow .to{text-align:left}
+  .arrow{display:none}
+}

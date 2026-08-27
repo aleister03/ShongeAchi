@@ -7,18 +7,9 @@ import SubscriptionPayment from "@/models/SubscriptionPayment.js";
 import AiAssessment from "@/models/AiAssessment.js";
 import { failure, success } from "@/lib/api.js";
 import { requireAuth } from "@/lib/auth.js";
-import { serializeChecker } from "@/lib/checkers.js";
+import { serializeCheckersWithWorkload, workloadMapFromAggregate } from "@/lib/checkers.js";
 import { buildOverview, monthStart } from "@/lib/analytics.js";
 
-// GET /api/analytics/overview
-//
-// Platform-wide figures for the admin dashboard. Admin-only, matching every other
-// platform-level endpoint (GET /api/checkers, /api/elders?unassigned=true).
-//
-// Nothing is stored: each figure is derived on read from data the app already keeps.
-// Visits and payments are scoped to the current month (the same window the checker
-// detail page uses for its performance panel); elders, checkers and concern
-// assessments are current-state and so unscoped.
 export async function GET(request) {
   try {
     requireAuth(request, ["admin"]);
@@ -27,10 +18,13 @@ export async function GET(request) {
     const now = new Date();
     const since = monthStart(now);
 
-    const [elders, visits, rawCheckers, payments, subscriptionPayments, latestAssessments] = await Promise.all([
+    const [elders, visits, rawCheckers, workloadRows, payments, subscriptionPayments, latestAssessments] = await Promise.all([
       Elder.find().select("name address checkerId concernStatus medicalConditions subscription").lean(),
       Visit.find({ visitDate: { $gte: since } }).select("status visitDate checkerId elderId").lean(),
       Checker.find().lean(),
+      // Assignment lives on Elder.checkerId now that Checker.assignedElders is gone,
+      // so workload is counted from the Elder side.
+      Elder.aggregate([{ $match: { checkerId: { $ne: null } } }, { $group: { _id: "$checkerId", count: { $sum: 1 } } }]),
       Payment.find({ paidAt: { $gte: since } }).select("amount status paidAt").lean(),
       // Incoming subscription revenue for the same window.
       SubscriptionPayment.find({ paidAt: { $gte: since } }).select("amount status paidAt").lean(),
@@ -52,7 +46,7 @@ export async function GET(request) {
       ])
     ]);
 
-    const checkers = rawCheckers.map(serializeChecker);
+    const checkers = serializeCheckersWithWorkload(rawCheckers, workloadMapFromAggregate(workloadRows));
 
     return success(buildOverview({ elders, visits, checkers, latestAssessments, payments, subscriptionPayments, now }));
   } catch (error) {

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const VisitSchema = new mongoose.Schema({
   elderId: { type: mongoose.Schema.Types.ObjectId, ref: "Elder", required: true },
-  checkerId: { type: mongoose.Schema.Types.ObjectId, ref: "Checker", required: true },
+  checkerId: { type: String, required: true },
   checkerName: { type: String, required: true },
   status: { type: String, enum: ["Fine", "Concerned", "No Answer"], required: true },
   responses: [{
@@ -11,8 +11,6 @@ const VisitSchema = new mongoose.Schema({
     detail: { type: String, default: "" }
   }],
   visitDate: { type: Date, default: Date.now },
-  scheduledAt: { type: Date },
-  completedAt: { type: Date }
 });
 
 export default mongoose.models.Visit || mongoose.model("Visit", VisitSchema);

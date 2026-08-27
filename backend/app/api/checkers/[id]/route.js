@@ -9,18 +9,27 @@ import mongoose from "mongoose";
 import { requireAuth } from "@/lib/auth.js";
 
 
-const UPDATE_FIELDS = ["name", "serviceArea", "phone", "shift", "experienceYears", "maxWorkload", "verificationStatus", "active"];
+import { NextResponse } from "next/server";
 
-export async function GET(_request, context) {
+
+export async function GET(request, context) {
   try {
-    const auth = requireAuth(_request, ["admin", "checker"]);
+    const auth = requireAuth(request, ["admin", "checker"]);
     await connectDB();
     const { id } = await context.params;
+
     assertObjectId(id, "checker id");
     if (auth.role === "checker" && String(auth.checkerId) !== id) {
       throw new ApiError(403, "You can only view your own record");
     }
-    const checker = await Checker.findById(id).populate("assignedElders", "name address visitSchedule concernStatus").lean();
+    const checker = await Checker.findById(id).lean();
+    if (!checker) throw new ApiError(404, "Checker not found");
+    // Checker.assignedElders was removed by the merge; assignment is now recorded on
+    // Elder.checkerId, so the roster is queried from that side. populate() threw
+    // StrictPopulateError before this change.
+    const assignedElders = await Elder.find({ checkerId: id })
+      .select("name address visitSchedule concernStatus").lean();
+    checker.assignedElders = assignedElders;
     if (!checker) throw new ApiError(404, "Checker not found");
     const monthStart = new Date();
     monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
@@ -61,23 +70,45 @@ export async function PATCH(request, context) {
   }
 }
 
+// Restored after a bad merge: the teammate's checker-detail GET body had been spliced
+// into the middle of this handler, cutting the transaction off after
+// `Elder.updateMany(...)` and leaving references to `visitsThisMonth` and
+// `assignedElders`, which do not exist in this scope. The detail payload it built is
+// already served by GET above, so this handler is restored to just deleting.
 export async function DELETE(_request, context) {
-  requireAuth(_request, ["admin"]);
-  await connectDB();
-  const session = await mongoose.startSession();
   try {
+    requireAuth(_request, ["admin"]);
+    await connectDB();
     const { id } = await context.params;
     assertObjectId(id, "checker id");
-    let checker;
-    await session.withTransaction(async () => {
-      checker = await Checker.findByIdAndDelete(id, { session });
-      if (!checker) throw new ApiError(404, "Checker not found");
-      await Elder.updateMany({ checkerId: id }, { $set: { checkerId: null } }, { session });
-    });
-    return success({ id, message: "Checker deleted" });
+
+    const session = await mongoose.startSession();
+    try {
+      let checker;
+      await session.withTransaction(async () => {
+        checker = await Checker.findByIdAndDelete(id, { session });
+        if (!checker) throw new ApiError(404, "Checker not found");
+        // Any elders this checker served become unassigned rather than orphaned.
+        await Elder.updateMany({ checkerId: id }, { $set: { checkerId: null } }, { session });
+      });
+      return success({ deleted: true, _id: id });
+    } finally {
+      await session.endSession();
+    }
   } catch (error) {
     return failure(error);
-  } finally {
-    await session.endSession();
+  }
+}
+
+export async function PUT(request, context) {
+  try {
+    await connectDB();
+    const { id } = await context.params;
+    const body = await request.json();
+    const checker = await Checker.findByIdAndUpdate(id, body, { new: true });
+    if (!checker) return NextResponse.json({ error: "Checker not found" }, { status: 404 });
+    return NextResponse.json({ success: true, data: checker }, { status: 200 });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

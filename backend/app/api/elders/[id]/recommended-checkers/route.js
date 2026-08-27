@@ -1,6 +1,6 @@
 import connectDB from "@/lib/mongodb.js";
 import { ApiError, assertObjectId, failure, success } from "@/lib/api.js";
-import { serializeChecker, matchesServiceArea } from "@/lib/checkers.js";
+import { serializeCheckersWithWorkload, workloadMapFromAggregate, matchesServiceArea } from "@/lib/checkers.js";
 import { formatAddress } from "@/lib/address.js";
 import Checker from "@/models/Checker.js";
 import Elder from "@/models/Elder.js";
@@ -18,7 +18,7 @@ function locationScore(checker, elder) {
 }
 
 function workloadScore(checker) {
-  if (!checker.maxWorkload) return 0;
+  if (!checker.maxWorkload) return 0; // normalizeChecker maps maxCapacity -> maxWorkload
   const availableRatio = Math.max(checker.maxWorkload - checker.currentWorkload, 0) / checker.maxWorkload;
   return Math.round(availableRatio * WEIGHTS.workload);
 }
@@ -43,9 +43,17 @@ export async function GET(request, context) {
     if (!elder) throw new ApiError(404, "Elder not found");
 
     const eligibleCheckers = await Checker.find({
-      active: true,
-      verificationStatus: "verified",
-      $expr: { $lt: [{ $size: "$assignedElders" }, "$maxWorkload"] },
+      // The merged Checker model renamed these: active -> status, verificationStatus
+      // -> verified, maxWorkload -> maxCapacity. $or accepts either vocabulary so the
+      // query keeps working whichever shape a document was written in.
+      $and: [
+        { $or: [{ status: "Active" }, { active: true }] },
+        { $or: [{ verified: true }, { verificationStatus: "verified" }, { applicationStatus: "Approved" }] },
+        // Capacity can no longer be filtered in the query: Checker.assignedElders is
+        // gone, so $size had nothing to measure and the command errored with
+        // "The argument to $size must be an array". Capacity is applied in JS below
+        // using workload counted from Elder.checkerId.
+      ],
     }).lean();
 
     if (!eligibleCheckers.length) {
@@ -73,8 +81,15 @@ export async function GET(request, context) {
       }
     }
 
-    const ranked = eligibleCheckers
-      .map(serializeChecker)
+    // Workload now comes from Elder.checkerId counts, and the capacity filter that
+    // used to live in the Mongo query is applied here instead.
+    const workloadRows = await Elder.aggregate([
+      { $match: { checkerId: { $ne: null } } },
+      { $group: { _id: "$checkerId", count: { $sum: 1 } } }
+    ]);
+
+    const ranked = serializeCheckersWithWorkload(eligibleCheckers, workloadMapFromAggregate(workloadRows))
+      .filter((checker) => checker.availableCapacity > 0)
       .map((checker) => {
         const breakdown = {
           location: locationScore(checker, elder),

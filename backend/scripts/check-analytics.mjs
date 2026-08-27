@@ -1,7 +1,7 @@
 // Offline checks for the admin analytics aggregations. No database and no API key
 // required — every function under test is pure. Run with: npm run test:analytics
 import assert from "node:assert/strict";
-import { serializeChecker, matchesServiceArea, sameServiceArea, isAssignable } from "../lib/checkers.js";
+import { serializeChecker, normalizeChecker, matchesServiceArea, sameServiceArea, isAssignable } from "../lib/checkers.js";
 import { formatAddress } from "../lib/address.js";
 import {
   buildOverview,
@@ -116,6 +116,70 @@ check("summarizeCriticalCases emits a renderable address", () => {
   const map = new Map([["e1", { _id: "e1", name: "Critical", address: structured, checkerId: "c" }]]);
   const out = summarizeCriticalCases([{ elderId: "e1", concernLevel: "Critical", aiConcernScore: 90 }], map);
   assert.equal(typeof out.cases[0].address, "string");
+});
+
+console.log("\nmerged Checker schema (regression: silent zeros on the admin dashboard)");
+// The merge replaced models/Checker.js with a version using different field names.
+// The mismatch read as `undefined` rather than throwing, so the dashboard reported
+// 0 active checkers and the reassignment feature found nothing, with no error.
+const newShape = {
+  _id: "n1", name: "Mehedi", serviceArea: "Dhanmondi",
+  maxCapacity: 5, status: "Active", verified: true,
+  workingHours: { start: "08:00", end: "18:00" }, assignedElders: ["a", "b", "c", "d", "e"]
+};
+const oldShape = {
+  _id: "o1", name: "Legacy", serviceArea: "Dhanmondi",
+  maxWorkload: 6, active: true, verificationStatus: "verified", shift: "Morning",
+  assignedElders: ["x"]
+};
+
+check("maps the new field names onto the old vocabulary", () => {
+  const c = normalizeChecker(newShape);
+  assert.equal(c.maxWorkload, 5, "maxCapacity -> maxWorkload");
+  assert.equal(c.active, true, "status Active -> active true");
+  assert.equal(c.verificationStatus, "verified", "verified true -> verificationStatus");
+});
+check("maps the old field names onto the new vocabulary", () => {
+  const c = normalizeChecker(oldShape);
+  assert.equal(c.maxCapacity, 6);
+  assert.equal(c.status, "Active");
+  assert.equal(c.verified, true);
+});
+check("availableCapacity is a number, never NaN, for the new shape", () => {
+  const c = serializeChecker(newShape);
+  assert.equal(c.availableCapacity, 0);
+  assert.ok(Number.isFinite(c.availableCapacity), "was NaN before the fix");
+});
+check("a new-shape checker is assignable when Active and verified", () => {
+  assert.equal(isAssignable(serializeChecker(newShape)), true, "was false before the fix");
+});
+check("applicationStatus is honoured when `verified` is absent", () => {
+  assert.equal(normalizeChecker({ applicationStatus: "Approved", status: "Active" }).verificationStatus, "verified");
+  assert.equal(normalizeChecker({ applicationStatus: "Pending", status: "Active" }).verificationStatus, "pending");
+  assert.equal(normalizeChecker({ applicationStatus: "Rejected", status: "Active" }).verificationStatus, "rejected");
+});
+check("an Inactive checker is not treated as active", () => {
+  assert.equal(normalizeChecker({ status: "Inactive", maxCapacity: 5 }).active, false);
+  assert.equal(isAssignable(serializeChecker({ status: "Inactive", verified: true, maxCapacity: 5, assignedElders: [] })), false);
+});
+check("summarizeCheckers counts new-shape checkers (reported 0 before the fix)", () => {
+  const s = summarizeCheckers([serializeChecker(newShape), serializeChecker(oldShape)]);
+  assert.equal(s.activeCheckers, 2, "both are Active");
+  assert.equal(s.atFullCapacity, 1);
+  assert.equal(s.totalCapacity, 11, "5 + 6");
+  assert.ok(Number.isFinite(s.utilizationRate));
+});
+check("findCapacityAlerts pairs a full new-shape checker with a nearby colleague", () => {
+  const alerts = findCapacityAlerts([serializeChecker(newShape), serializeChecker(oldShape)]);
+  assert.equal(alerts.length, 1, "found none before the fix");
+  assert.equal(alerts[0].actionable, true);
+  assert.equal(alerts[0].alternatives[0].name, "Legacy");
+});
+check("tolerates a checker missing every capacity field", () => {
+  const c = serializeChecker({ _id: "x", name: "Bare", assignedElders: [] });
+  assert.equal(c.maxWorkload, 0);
+  assert.equal(c.availableCapacity, 0);
+  assert.equal(isAssignable(c), false);
 });
 
 console.log("\nsummarizeElders");

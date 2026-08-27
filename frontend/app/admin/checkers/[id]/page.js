@@ -6,9 +6,18 @@ import { formatAddress } from "@/app/lib/address.js";
 const money = new Intl.NumberFormat("en-BD", { style: "currency", currency: "BDT", maximumFractionDigits: 0 });
 
 export default function CheckerDetail({ params }) {
-  const { id } = use(params); const [checker, setChecker] = useState(null); const [elders, setElders] = useState([]); const [editing, setEditing] = useState(false); const [error, setError] = useState("");
-  const load = useCallback(() => apiRequest(`/api/checkers/${id}`).then((body) => setChecker(body.data)).catch((err) => setError(err.message)), [id]);
+  const { id } = use(params);
+  const [checker, setChecker] = useState(null);
+  const [elders, setElders] = useState([]);
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => apiRequest(`/api/checkers/${id}`)
+    .then((body) => setChecker(body.data))
+    .catch((requestError) => setError(requestError.message)), [id]);
+
   useEffect(() => { load(); }, [load]);
+
   useEffect(() => {
     if (!editing) return undefined;
     const closeOnEscape = (event) => { if (event.key === "Escape") setEditing(false); };

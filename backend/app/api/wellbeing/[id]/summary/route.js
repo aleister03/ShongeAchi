@@ -1,3 +1,4 @@
+
 import connectDB from "@/lib/mongodb.js";
 import Visit from "@/models/Visit.js";
 import Elder from "@/models/Elder.js";
@@ -6,11 +7,13 @@ import { requireAuth, assertElderAccess } from "@/lib/auth.js";
 import { assertPremium } from "@/lib/subscription.js";
 import { deriveLevels } from "@/lib/deriveLevels.js";
 
+
 export async function GET(request, context) {
   try {
     const auth = requireAuth(request, ["admin", "checker", "family"]);
     await connectDB();
     const { id } = await context.params;
+
     assertObjectId(id, "elder id");
     const elder = await Elder.findById(id); 
     if (!elder) throw new ApiError(404, "Elder not found");
@@ -34,7 +37,8 @@ export async function GET(request, context) {
         summary,
         recommendation: poorMobilityCount >= 2 || concernedCount >= 2 ? "Increase visit frequency" : "Continue current schedule"
     });
+
   } catch (error) {
-    return failure(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import AdminHeader from "@/app/components/AdminHeader.js";
+import "../checkers/checkers.css";
 import "./assignments.css";
 import RequireAuth from "@/app/components/RequireAuth.js";
 

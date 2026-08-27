@@ -1,3 +1,4 @@
+
 import connectDB from "@/lib/mongodb.js";
 import { ApiError, assertObjectId, failure, success } from "@/lib/api.js";
 import Elder from "@/models/Elder.js";
@@ -27,18 +28,21 @@ function validateResponses(responses) {
   return responses;
 }
 
+
 export async function GET(request, context) {
   try {
     const auth = requireAuth(request, ["admin", "checker", "family"]);
     await connectDB();
     const { id } = await context.params;
+
     assertObjectId(id, "elder id");
     const elder = await Elder.findById(id);
     if (!elder) throw new ApiError(404, "Elder not found");
     assertElderAccess(auth, elder);
     return success(await Visit.find({ elderId: id }).sort({ visitDate: -1 }));
+
   } catch (error) {
-    return failure(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -47,6 +51,7 @@ export async function POST(request, context) {
     const auth = requireAuth(request, ["checker"]);
     await connectDB();
     const { id } = await context.params;
+
     assertObjectId(id, "elder id");
     const elder = await Elder.findById(id).lean();
     if (!elder) throw new ApiError(404, "Elder not found");
@@ -139,7 +144,8 @@ export async function POST(request, context) {
     }
 
     return success({ visit, report, aiAssessment }, 201);
+
   } catch (error) {
-    return failure(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -25,6 +25,7 @@ export default function AdminHeader() {
 
   const links = [
     ["Dashboard", "/admin"],
+    ["Analytics", "/admin/analytics"],
     ["Checkers", "/admin/checkers"],
     ["Elders", "/admin/elders"],
     ["Subscriptions", "/admin/subscriptions"],

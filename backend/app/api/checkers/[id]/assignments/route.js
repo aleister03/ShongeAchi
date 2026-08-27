@@ -28,18 +28,32 @@ async function assignmentRequest(request, context, operation) {
   }
 }
 
+// Rewritten for the merged schema. Checker.assignedElders was removed, so:
+//   - the $size capacity filter errored ("argument to $size must be an array")
+//   - $push wrote to a path mongoose strips, so nothing was recorded on the checker
+//   - $pull on unassign matched nothing, so every unassign returned 404
+// Elder.checkerId is now the single source of truth for assignment, and capacity is
+// checked by counting elders inside the same transaction.
 async function assign({ checkerId, elderId, session }) {
   const elder = await Elder.findOne({ _id: elderId, checkerId: null }).session(session);
   if (!elder) throw new ApiError(409, "Elder is already assigned or does not exist");
-  const checker = await Checker.findOneAndUpdate(
-    { _id: checkerId, active: true, verificationStatus: "verified", assignedElders: { $ne: elder._id }, $expr: { $lt: [{ $size: "$assignedElders" }, "$maxWorkload"] } },
-    { $push: { assignedElders: elder._id } },
-    { returnDocument: "after", runValidators: true, session }
-  );
-  if (!checker) throw new ApiError(409, "Checker is unavailable, unverified, or at full capacity");
+
+  const checker = await Checker.findOne({
+    _id: checkerId,
+    $and: [
+      { $or: [{ status: "Active" }, { active: true }] },
+      { $or: [{ verified: true }, { verificationStatus: "verified" }, { applicationStatus: "Approved" }] }
+    ]
+  }).session(session);
+  if (!checker) throw new ApiError(409, "Checker is unavailable or unverified");
+
+  const maxWorkload = checker.maxCapacity ?? checker.maxWorkload ?? 0;
+  const currentWorkload = await Elder.countDocuments({ checkerId }).session(session);
+  if (currentWorkload >= maxWorkload) throw new ApiError(409, "Checker is at full capacity");
+
   elder.checkerId = checker._id;
   await elder.save({ session });
-  return checker;
+  return serializeChecker(checker, currentWorkload + 1);
 }
 
 async function unassign({ checkerId, elderId, session }) {
@@ -47,11 +61,10 @@ async function unassign({ checkerId, elderId, session }) {
     { _id: elderId, checkerId }, { $set: { checkerId: null } }, { returnDocument: "after", session }
   );
   if (!elder) throw new ApiError(404, "Assignment not found");
-  const checker = await Checker.findOneAndUpdate(
-    { _id: checkerId, assignedElders: elderId }, { $pull: { assignedElders: elderId } }, { returnDocument: "after", session }
-  );
-  if (!checker) throw new ApiError(404, "Assignment not found");
-  return checker;
+
+  const checker = await Checker.findById(checkerId).session(session);
+  if (!checker) throw new ApiError(404, "Checker not found");
+  return serializeChecker(checker, await Elder.countDocuments({ checkerId }).session(session));
 }
 
 export function POST(request, context) {

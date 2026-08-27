@@ -2,6 +2,7 @@ import connectDB from "@/lib/mongodb.js";
 import { ApiError, assertObjectId, failure, requireFields, success } from "@/lib/api.js";
 import { serializeChecker } from "@/lib/checkers.js";
 import Checker from "@/models/Checker.js";
+import Elder from "@/models/Elder.js";
 import { requireAuth } from "@/lib/auth.js";
 
 export async function GET(_request, context) {
@@ -15,8 +16,8 @@ export async function GET(_request, context) {
     }
     const checker = await Checker.findById(id);
     if (!checker) throw new ApiError(404, "Checker not found");
-    const { currentWorkload, maxWorkload, availableCapacity } = serializeChecker(checker);
-    return success({ currentWorkload, maxWorkload, availableCapacity });
+    const s2 = serializeChecker(checker, await Elder.countDocuments({ checkerId: id }));
+    return success({ currentWorkload: s2.currentWorkload, maxWorkload: s2.maxWorkload, availableCapacity: s2.availableCapacity });
   } catch (error) {
     return failure(error);
   }
@@ -31,17 +32,27 @@ export async function PATCH(request, context) {
     const body = await request.json();
     requireFields(body, ["maxWorkload"]);
     if (!Number.isInteger(body.maxWorkload) || body.maxWorkload < 1) throw new ApiError(400, "maxWorkload must be a positive integer");
+
+    if (!await Checker.exists({ _id: id })) throw new ApiError(404, "Checker not found");
+    const currentWorkload = await Elder.countDocuments({ checkerId: id });
+    if (body.maxWorkload < currentWorkload) {
+      throw new ApiError(409, `Max workload cannot be below the current workload of ${currentWorkload}`);
+    }
+
     const checker = await Checker.findOneAndUpdate(
-      { _id: id, $expr: { $lte: [{ $size: "$assignedElders" }, body.maxWorkload] } },
-      { $set: { maxWorkload: body.maxWorkload } },
+      // Capacity can't be guarded with $size any more (Checker.assignedElders was
+      // removed by the merge); the current workload is counted from Elder.checkerId
+      // before this update runs.
+      { _id: id },
+      // maxCapacity is the field the merged model defines; writing maxWorkload would
+      // be silently discarded by mongoose strict mode. Both are set so either
+      // vocabulary reads back correctly.
+      { $set: { maxCapacity: body.maxWorkload, maxWorkload: body.maxWorkload } },
       { returnDocument: "after", runValidators: true }
     );
-    if (!checker) {
-      if (!await Checker.exists({ _id: id })) throw new ApiError(404, "Checker not found");
-      throw new ApiError(409, "Max workload cannot be below current workload");
-    }
-    const { currentWorkload, maxWorkload, availableCapacity } = serializeChecker(checker);
-    return success({ currentWorkload, maxWorkload, availableCapacity });
+    if (!checker) throw new ApiError(404, "Checker not found");
+    const s2 = serializeChecker(checker, await Elder.countDocuments({ checkerId: id }));
+    return success({ currentWorkload: s2.currentWorkload, maxWorkload: s2.maxWorkload, availableCapacity: s2.availableCapacity });
   } catch (error) {
     return failure(error);
   }

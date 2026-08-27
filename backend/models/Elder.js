@@ -1,47 +1,276 @@
 import mongoose from "mongoose";
 
-const ElderSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  age: { type: Number, required: true },
-  gender: { type: String, required: true },
-  phone: { type: String, required: true },
-  address: { type: String, required: true },
-  medicalConditions: { type: [String], default: [] },
-  mobilityNotes: { type: String, default: "" },
-  bio: { type: String, default: "" },
-  emergencyContact: {
-    name: { type: String, required: true },
-    phone: { type: String, required: true },
-    relationship: { type: String, required: true },
-    note: { type: String, default: "" }
+const AddressSchema = new mongoose.Schema({
+  flatFloor: {
+    type: String,
+    default: "",
   },
-  secondaryContact: {
-    name: { type: String, default: "" },
-    phone: { type: String, default: "" },
-    relationship: { type: String, default: "" },
-    note: { type: String, default: "" }
+
+  houseNo: {
+    type: String,
+    default: "",
   },
-  familyMemberId: { type: String, required: true },
-  checkerId: { type: mongoose.Schema.Types.ObjectId, ref: "Checker", default: null },
-  concernStatus: { type: String, enum: ["Fine", "Concern flagged"], default: "Fine" },
-  // Premium is sold per elder per month, so subscription state lives here rather
-  // than on User: one family member may upgrade some of their elders and not others.
-  // `plan` records what was bought; whether access is currently granted is derived
-  // from status + currentPeriodEnd by lib/subscription.js isPremium(), so a lapsed
-  // subscription stops working without needing a scheduled job. Defaults keep every
-  // existing elder on the free plan with no migration.
-  subscription: {
-    plan: { type: String, enum: ["free", "premium"], default: "free" },
-    status: { type: String, enum: ["inactive", "active", "expired", "cancelled"], default: "inactive" },
-    currentPeriodEnd: { type: Date, default: null },
-    activatedAt: { type: Date, default: null },
-    lastPaymentId: { type: mongoose.Schema.Types.ObjectId, ref: "SubscriptionPayment", default: null }
+
+  road: {
+    type: String,
+    default: "",
   },
-  visitSchedule: {
-    days: { type: [String], default: [] },
-    escalateAfterHours: { type: Number, default: 4 }
+
+  areaTahna: {
+    type: String,
+    default: "",
   },
-  createdAt: { type: Date, default: Date.now }
+
+  city: {
+    type: String,
+    default: "",
+  },
+
+  postalCode: {
+    type: String,
+    default: "",
+  },
+
+  country: {
+    type: String,
+    default: "Bangladesh",
+  },
 });
 
-export default mongoose.models.Elder || mongoose.model("Elder", ElderSchema);
+// Bangladeshi mobile numbers.
+const BD_PHONE_REGEX =
+  /^(017|013|018|019|014)\d{8}$/;
+
+const ElderSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+
+  age: {
+    type: Number,
+    required: true,
+    min: 30,
+    max: 120,
+  },
+
+  gender: {
+    type: String,
+    required: true,
+  },
+
+  phone: {
+    type: String,
+    required: true,
+    match: [
+      BD_PHONE_REGEX,
+      "Phone must be an 11-digit number starting with 017, 013, 018, 019, or 014",
+    ],
+  },
+
+  address: {
+    type: AddressSchema,
+    required: true,
+  },
+
+  bio: {
+    type: String,
+    default: "",
+  },
+
+  medicalConditions: {
+    type: [String],
+    default: [],
+  },
+
+  mobilityNotes: {
+    type: String,
+    default: "",
+  },
+
+  emergencyContact: {
+    name: {
+      type: String,
+      required: true,
+    },
+
+    phone: {
+      type: String,
+      required: true,
+      match: [
+        BD_PHONE_REGEX,
+        "Phone must be an 11-digit number starting with 017, 013, 018, 019, or 014",
+      ],
+    },
+
+    email: {
+      type: String,
+      required: true,
+      match: [
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        "Please provide a valid email",
+      ],
+    },
+
+    relationship: {
+      type: String,
+      required: true,
+    },
+
+    note: {
+      type: String,
+      default: "",
+    },
+  },
+
+  secondaryContact: {
+    name: {
+      type: String,
+      default: "",
+    },
+
+    phone: {
+      type: String,
+      default: "",
+      validate: {
+        validator: (value) =>
+          !value || BD_PHONE_REGEX.test(value),
+        message:
+          "Phone must be an 11-digit number starting with 017, 013, 018, 019, or 014",
+      },
+    },
+
+    email: {
+      type: String,
+      default: "",
+    },
+
+    relationship: {
+      type: String,
+      default: "",
+    },
+
+    note: {
+      type: String,
+      default: "",
+    },
+  },
+
+  familyMemberId: {
+    type: String,
+    required: true,
+  },
+
+  familyMemberEmail: {
+    type: String,
+    default: "",
+  },
+
+  // The checker currently assigned to this elder.
+  checkerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Checker",
+    default: null,
+  },
+
+  status: {
+    type: String,
+    enum: ["Waiting", "Assigned"],
+    default: "Waiting",
+  },
+
+  concernStatus: {
+    type: String,
+    enum: ["Fine", "Concern flagged"],
+    default: "Fine",
+  },
+
+  visitSchedule: {
+    days: {
+      type: [String],
+      default: [],
+    },
+
+    scheduledTime: {
+      type: String,
+      default: "10:00",
+    },
+
+    escalateAfterHours: {
+      type: Number,
+      default: 4,
+    },
+  },
+
+  // Subscription is per elder, not per family member.
+  subscription: {
+    plan: {
+      type: String,
+      enum: ["free", "premium"],
+      default: "free",
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "inactive",
+        "active",
+        "expired",
+        "cancelled",
+      ],
+      default: "inactive",
+    },
+
+    currentPeriodEnd: {
+      type: Date,
+      default: null,
+    },
+
+    activatedAt: {
+      type: Date,
+      default: null,
+    },
+
+    lastPaymentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SubscriptionPayment",
+      default: null,
+    },
+  },
+
+  // Allows an authorized checker to manually override
+  // the calculated AI concern score.
+  concernOverride: {
+    score: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null,
+    },
+
+    note: {
+      type: String,
+      default: "",
+    },
+
+    setByCheckerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Checker",
+      default: null,
+    },
+
+    setAt: {
+      type: Date,
+      default: null,
+    },
+  },
+
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+export default
+  mongoose.models.Elder ||
+  mongoose.model("Elder", ElderSchema);

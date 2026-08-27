@@ -84,6 +84,20 @@ const mehediElders = [
   ]
 ];
 
+// Splits a free-text seed address like "House 14, Road 6" into the structured shape
+// the merged Elder model requires. Only used by the seed; live data comes from the
+// register-elder form.
+function toStructuredAddress(text) {
+  const parts = String(text ?? "").split(",").map((piece) => piece.trim()).filter(Boolean);
+  return {
+    houseNo: parts[0] ?? "",
+    road: parts[1] ?? "",
+    areaTahna: parts[2] ?? "Dhanmondi",
+    city: parts[3] ?? "Dhaka",
+    postalCode: "1209"
+  };
+}
+
 function elderRecord(
   name,
   address,
@@ -94,13 +108,20 @@ function elderRecord(
 ) {
   return {
     name,
-    address,
+    // The merged Elder model changed `address` from a String to a structured
+    // AddressSchema { flatFloor, houseNo, road, areaTahna, city, postalCode }, so
+    // seeding a plain string failed validation. The specs give a free-text address,
+    // which is split onto road/areaTahna here.
+    address: toStructuredAddress(address),
     concernStatus,
     checkerId,
 
     age: 68 + (index % 17),
     gender: index % 2 ? "Female" : "Male",
     phone: `0170000${String(index).padStart(4, "0")}`,
+    // Now required by the merged model.
+    email: `elder${index}@demo.test`,
+    relationship: "Parent",
 
     medicalConditions: [],
     mobilityNotes: "",
@@ -108,6 +129,8 @@ function elderRecord(
     emergencyContact: {
       name: "Showcase Contact",
       phone: "01700000000",
+      // Also newly required.
+      email: "contact@demo.test",
       relationship: "Family"
     },
 
@@ -275,6 +298,9 @@ try {
     let mehediChecker = null;
     let familyElders = [];
 
+    // One hash reused for every seeded checker — bcrypt is slow and this is demo data.
+    const checkerPasswordHash = await hashPassword("password123");
+
     /*
      * 5. Create checkers and elders
      */
@@ -287,7 +313,23 @@ try {
             experienceYears: spec.experienceYears,
             shift: spec.shift,
 
+            // The merged Checker model made phone and passwordHash required, so
+            // seeding failed outright with a ValidationError until these were added.
+            // Every seeded checker signs in with the same demo password.
+            phone: spec.phone ?? `0171000${String(checkerSpecs.indexOf(spec)).padStart(4, "0")}`,
+            email: spec.email ?? `${spec.name.toLowerCase().replace(/[^a-z]+/g, ".")}@checker.demo.test`,
+            passwordHash: checkerPasswordHash,
+            workingHours: { start: "08:00", end: "18:00" },
+
+            // The merged Checker model renamed these; writing only the old names
+            // would be silently discarded by mongoose strict mode, leaving every
+            // seeded checker unassignable. Both vocabularies are written so either
+            // model version reads back correctly.
+            maxCapacity: 20,
             maxWorkload: 20,
+            verified: true,
+            applicationStatus: "Approved",
+            status: "Active",
             verificationStatus: "verified",
             active: true
           }
