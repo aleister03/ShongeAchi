@@ -24,6 +24,19 @@ const ElderSchema = new mongoose.Schema({
   familyMemberId: { type: String, required: true },
   checkerId: { type: mongoose.Schema.Types.ObjectId, ref: "Checker", default: null },
   concernStatus: { type: String, enum: ["Fine", "Concern flagged"], default: "Fine" },
+  // Premium is sold per elder per month, so subscription state lives here rather
+  // than on User: one family member may upgrade some of their elders and not others.
+  // `plan` records what was bought; whether access is currently granted is derived
+  // from status + currentPeriodEnd by lib/subscription.js isPremium(), so a lapsed
+  // subscription stops working without needing a scheduled job. Defaults keep every
+  // existing elder on the free plan with no migration.
+  subscription: {
+    plan: { type: String, enum: ["free", "premium"], default: "free" },
+    status: { type: String, enum: ["inactive", "active", "expired", "cancelled"], default: "inactive" },
+    currentPeriodEnd: { type: Date, default: null },
+    activatedAt: { type: Date, default: null },
+    lastPaymentId: { type: mongoose.Schema.Types.ObjectId, ref: "SubscriptionPayment", default: null }
+  },
   visitSchedule: {
     days: { type: [String], default: [] },
     escalateAfterHours: { type: Number, default: 4 }

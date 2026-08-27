@@ -2,7 +2,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { apiRequest } from "@/app/lib/api";
+import { apiRequest } from "@/app/lib/api.js";
+import { useEffect } from "react";
 
 const DAYS = ["SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI"];
 const DAY_FULL = {
@@ -12,6 +13,9 @@ const DAY_FULL = {
 
 export default function RegisterElder() {
   const router = useRouter();
+  useEffect(() => {
+  if (!localStorage.getItem("token")) router.push("/signin?next=/register-elder");
+}, [router]);
   const [step, setStep] = useState(1);
 
   // Step 1

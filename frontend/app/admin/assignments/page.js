@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { apiRequest } from "@/app/lib/api";
-import { Badge, ErrorMessage } from "@/app/components/ui/AdminUI";
+import { apiRequest } from "@/app/lib/api.js";
+import { Badge, ErrorMessage } from "@/app/components/ui/AdminUI.js";
+import { formatAddress } from "@/app/lib/address.js";
 
 const initials = (name) =>
   name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -91,7 +92,7 @@ export default function AssignmentsPage() {
               <span className="avatar">{initials(elder.name)}</span>
               <div>
                 <strong>{elder.name}</strong>
-                <p className="muted">{elder.address}</p>
+                <p className="muted">{formatAddress(elder.address)}</p>
                 {!!elder.medicalConditions?.length && (
                   <p className="muted">{elder.medicalConditions.join(", ")}</p>
                 )}
@@ -109,7 +110,7 @@ export default function AssignmentsPage() {
                 <div>
                   <strong>{selectedElder.name}</strong>
                   <p className="muted">
-                    {selectedElder.address}
+                    {formatAddress(selectedElder.address)}
                     {!!selectedElder.medicalConditions?.length &&
                       ` · ${selectedElder.medicalConditions.join(", ")}`}
                   </p>

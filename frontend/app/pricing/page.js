@@ -1,4 +1,4 @@
-import Navbar from "../components/Navbar";
+import Navbar from "../components/Navbar.js";
 import Link from "next/link";
 
 export default function Pricing() {
@@ -60,7 +60,7 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
-            <Link href="/register-elder" className="block text-center px-6 py-3 bg-white text-[#2a7a5a] rounded-full font-medium hover:bg-[#e6f2dd] transition">
+            <Link href="/family" className="block text-center px-6 py-3 bg-white text-[#2a7a5a] rounded-full font-medium hover:bg-[#e6f2dd] transition">
               Get Premium
             </Link>
           </div>

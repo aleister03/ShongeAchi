@@ -1,0 +1,61 @@
+/* frontend/app/checker/checker.css */
+/* Mirrors the visual language of admin/checkers/checkers.css so the checker
+   section (currently unstyled beyond dashboard.css) feels like part of the
+   same app rather than a bare, separate screen. Class names are kept
+   distinct from the admin ones (checkerApp/checkerHeader vs adminApp/
+   adminHeader) to avoid any cross-bundle ambiguity, but values match. */
+
+.checkerApp{min-height:100vh;background:#fffbdc;color:#20231f}
+
+.checkerHeader{height:82px;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(20px,4vw,64px);gap:40px;border-bottom:1px solid #eee}
+.checkerBrand{display:flex;align-items:center;gap:10px;color:#087d72;font-size:22px;font-weight:700;white-space:nowrap}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin:28px 0 18px}
+.stat span{font-size:12px;color:#555}
+.stat strong{display:block;font-size:22px}
+.stat.warn strong{color:#c99826}
+.stat.danger strong{color:#c92329}
+
+.person{display:flex;align-items:center;gap:12px}
+.avatar{width:40px;height:40px;min-width:40px;border-radius:50%;background:#d6f8d7;display:grid;place-items:center;color:#357349;font-size:14px;font-weight:600}
+
+/* Visit form */
+.formStepper{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+.formStep{border-radius:20px;padding:8px 18px;background:#edf2d9;font-size:12px;color:#555}
+.formStep.active{background:#dbe8bd;color:#20231f;font-weight:600}
+
+.fieldGroup{margin-top:18px}
+.fieldGroup label{display:block;font-size:13px;font-weight:600;margin-bottom:8px}
+
+.pillChoices{display:flex;flex-wrap:wrap;gap:10px}
+.pillChoice{border:1px solid #cbd9d2;border-radius:20px;padding:9px 18px;background:#fff;font-size:13px;cursor:pointer;transition:background .1s,border-color .1s}
+.pillChoice:hover{border-color:#087d72}
+.pillChoice.selected{background:#087d72;border-color:#087d72;color:#fff}
+
+.fieldGroup select,.fieldGroup textarea,.fieldGroup input,.statusSelect{
+  width:100%;border:1px solid #cbd9d2;border-radius:14px;padding:12px 14px;font-size:14px;
+  background:#fff;font-family:inherit;
+}
+.fieldGroup textarea{min-height:88px;resize:vertical}
+.fieldGroup input{margin-top:10px}
+
+.statusRow{display:flex;align-items:center;gap:14px}
+.statusRow .statusSelect{max-width:220px}
+
+.submitBar{position:sticky;bottom:0;background:linear-gradient(to top,#fffbdc 60%,#fffbdc00);padding:20px 0;margin-top:8px}
+.submitButton{border:none;border-radius:99px;padding:14px 32px;background:#087d72;color:#fff;font-weight:600;font-size:15px;cursor:pointer}
+.submitButton:disabled{opacity:.6;cursor:not-allowed}
+
+/* Visit-logged result screen */
+.resultHero{display:flex;align-items:center;gap:20px;padding:8px 0 20px}
+.resultScore{font-size:40px;font-weight:700;color:#087d72}
+.resultScore small{font-size:14px;font-weight:500;color:#777}
+
+@media(max-width:800px){
+  .stats{grid-template-columns:1fr 1fr}
+  .checkerHeader{padding:0 20px}
+}
+@media(max-width:480px){
+  .checkerBrand span{display:none}
+  .stats{grid-template-columns:1fr}
+}

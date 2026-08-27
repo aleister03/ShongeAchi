@@ -1,31 +1,24 @@
-import connectDB from "@/lib/mongodb";
-import Visit from "@/models/Visit";
-import { ApiError, assertObjectId, failure, success } from "@/lib/api";
-import Elder from "@/models/Elder";
-
-function calculateConcernScore(visits) {
-  if (visits.length === 0) return 0;
-  let score = 0;
-  visits.forEach(visit => {
-    if (visit.status === "Concerned") score += 15;
-    if (visit.status === "No Answer") score += 20;
-    if (visit.appetiteLevel === "Poor") score += 10;
-    if (visit.appetiteLevel === "Fair") score += 5;
-    if (visit.mobilityLevel === "Poor") score += 10;
-    if (visit.mobilityLevel === "Fair") score += 5;
-    if (visit.moodLevel === "Poor") score += 10;
-    if (!visit.medicationTaken) score += 10;
-  });
-  return Math.min(Math.round(score / visits.length), 100);
-}
+import connectDB from "@/lib/mongodb.js";
+import Visit from "@/models/Visit.js";
+import { ApiError, assertObjectId, failure, success } from "@/lib/api.js";
+import Elder from "@/models/Elder.js";
+import { requireAuth, assertElderAccess } from "@/lib/auth.js";
+import { assertPremium } from "@/lib/subscription.js";
+import { deriveLevels } from "@/lib/deriveLevels.js";
+import { calculateConcernScore } from "@/lib/concernScore.js";
 
 export async function GET(_request, context) {
   try {
+    const auth = requireAuth(_request, ["admin", "checker", "family"]); // was `request` — fixed
     await connectDB();
     const { id } = await context.params;
     assertObjectId(id, "elder id");
-    if (!await Elder.exists({ _id: id })) throw new ApiError(404, "Elder not found");
-    const visits = await Visit.find({ elderId: id }).sort({ visitDate: 1 });
+    const elder = await Elder.findById(id);
+    if (!elder) throw new ApiError(404, "Elder not found");
+    assertElderAccess(auth, elder);
+    assertPremium(auth, elder, "Concern trends");
+    const rawVisits = await Visit.find({ elderId: id }).sort({ visitDate: 1 });
+    const visits = rawVisits.map((v) => ({ ...v.toObject(), ...deriveLevels(v.responses) }));
     if (visits.length === 0) {
       return success({ concernScore: 0, trend: "No data", totalVisits: 0 });
     }

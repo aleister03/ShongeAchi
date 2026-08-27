@@ -1,12 +1,14 @@
-import connectDB from "@/lib/mongodb";
-import { ApiError, failure, pick, requireFields, success } from "@/lib/api";
-import { serializeChecker } from "@/lib/checkers";
-import Checker from "@/models/Checker";
+import connectDB from "@/lib/mongodb.js";
+import { ApiError, failure, pick, requireFields, success } from "@/lib/api.js";
+import { serializeChecker } from "@/lib/checkers.js";
+import Checker from "@/models/Checker.js";
+import { requireAuth } from "@/lib/auth.js";
 
 const CREATE_FIELDS = ["name", "serviceArea", "phone", "shift", "experienceYears", "maxWorkload"];
 
-export async function GET() {
+export async function GET(request) {
   try {
+    requireAuth(request, ["admin"]);
     await connectDB();
     const data = (await Checker.find().sort({ createdAt: -1 }).lean()).map(serializeChecker);
     const active = data.filter((checker) => checker.active);
@@ -24,6 +26,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    requireAuth(request, ["admin"]);
     await connectDB();
     const body = await request.json();
     requireFields(body, ["name", "serviceArea"]);

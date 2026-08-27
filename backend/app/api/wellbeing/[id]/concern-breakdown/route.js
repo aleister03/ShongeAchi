@@ -1,7 +1,11 @@
-import connectDB from "@/lib/mongodb";
-import Visit from "@/models/Visit";
-import { ApiError, assertObjectId, failure, success } from "@/lib/api";
-import Elder from "@/models/Elder";
+import connectDB from "@/lib/mongodb.js";
+import Visit from "@/models/Visit.js";
+import { ApiError, assertObjectId, failure, success } from "@/lib/api.js";
+import Elder from "@/models/Elder.js";
+import { requireAuth, assertElderAccess } from "@/lib/auth.js";
+import { assertPremium } from "@/lib/subscription.js";
+import { deriveLevels } from "@/lib/deriveLevels.js";
+
 
 function getLevelLabel(visits, field) {
   const poor = visits.filter(v => v[field] === "Poor").length;
@@ -12,13 +16,18 @@ function getLevelLabel(visits, field) {
   return "Low";
 }
 
-export async function GET(_request, context) {
+export async function GET(request, context) {
   try {
+    const auth = requireAuth(request, ["admin", "checker", "family"]);
     await connectDB();
     const { id } = await context.params;
     assertObjectId(id, "elder id");
-    if (!await Elder.exists({ _id: id })) throw new ApiError(404, "Elder not found");
-    const visits = await Visit.find({ elderId: id });
+    const elder = await Elder.findById(id); 
+    if (!elder) throw new ApiError(404, "Elder not found");
+    assertElderAccess(auth, elder);
+    assertPremium(auth, elder, "Concern trends");
+    const rawVisits = await Visit.find({ elderId: id });
+    const visits = rawVisits.map((v) => ({ ...v.toObject(), ...deriveLevels(v.responses) }));
     if (visits.length === 0) {
       return success({ message: "No visits found" });
     }

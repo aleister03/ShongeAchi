@@ -1,19 +1,25 @@
-import connectDB from "@/lib/mongodb";
-import { ApiError, assertObjectId, failure, pick, success } from "@/lib/api";
-import { serializeChecker } from "@/lib/checkers";
-import Checker from "@/models/Checker";
-import Elder from "@/models/Elder";
-import Payment from "@/models/Payment";
-import Visit from "@/models/Visit";
+import connectDB from "@/lib/mongodb.js";
+import { ApiError, assertObjectId, failure, pick, success } from "@/lib/api.js";
+import { serializeChecker } from "@/lib/checkers.js";
+import Checker from "@/models/Checker.js";
+import Elder from "@/models/Elder.js";
+import Payment from "@/models/Payment.js";
+import Visit from "@/models/Visit.js";
 import mongoose from "mongoose";
+import { requireAuth } from "@/lib/auth.js";
+
 
 const UPDATE_FIELDS = ["name", "serviceArea", "phone", "shift", "experienceYears", "maxWorkload", "verificationStatus", "active"];
 
 export async function GET(_request, context) {
   try {
+    const auth = requireAuth(_request, ["admin", "checker"]);
     await connectDB();
     const { id } = await context.params;
     assertObjectId(id, "checker id");
+    if (auth.role === "checker" && String(auth.checkerId) !== id) {
+      throw new ApiError(403, "You can only view your own record");
+    }
     const checker = await Checker.findById(id).populate("assignedElders", "name address visitSchedule concernStatus").lean();
     if (!checker) throw new ApiError(404, "Checker not found");
     const monthStart = new Date();
@@ -37,6 +43,7 @@ export async function GET(_request, context) {
 
 export async function PATCH(request, context) {
   try {
+    requireAuth(request, ["admin"]);
     await connectDB();
     const { id } = await context.params;
     assertObjectId(id, "checker id");
@@ -55,6 +62,7 @@ export async function PATCH(request, context) {
 }
 
 export async function DELETE(_request, context) {
+  requireAuth(_request, ["admin"]);
   await connectDB();
   const session = await mongoose.startSession();
   try {

@@ -1,11 +1,13 @@
-import connectDB from "@/lib/mongodb";
-import { ApiError, assertObjectId, failure, requireFields, success } from "@/lib/api";
-import { serializeChecker } from "@/lib/checkers";
-import Checker from "@/models/Checker";
-import Elder from "@/models/Elder";
+import connectDB from "@/lib/mongodb.js";
+import { ApiError, assertObjectId, failure, requireFields, success } from "@/lib/api.js";
+import { serializeChecker } from "@/lib/checkers.js";
+import Checker from "@/models/Checker.js";
+import Elder from "@/models/Elder.js";
 import mongoose from "mongoose";
+import { requireAuth } from "@/lib/auth.js";
 
 async function assignmentRequest(request, context, operation) {
+  requireAuth(request, ["admin"]);
   await connectDB();
   const session = await mongoose.startSession();
   try {

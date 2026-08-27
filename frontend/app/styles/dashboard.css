@@ -1,0 +1,32 @@
+/* frontend/app/styles/dashboard.css */
+.checkerMain{max-width:1280px;margin:auto;padding:52px clamp(20px,5vw,70px)}
+.eyebrow{font-size:12px;color:#668370;margin-bottom:24px}
+.card{background:#fff;border-radius:30px;padding:16px 20px;box-shadow:0 2px 12px #bcba8920;margin-bottom:20px}
+.elderItem{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #ddd}
+.pillButton{border:1px solid #087d72;border-radius:99px;padding:10px 25px;background:white;cursor:pointer;display:inline-block;text-decoration:none;color:#087d72}
+.muted{font-size:11px;color:#555}
+.empty{color:#777;padding:22px 0}
+.error{color:#b4232d;margin:10px 0}
+.badge{border-radius:20px;padding:5px 24px;background:#cdf9d5;text-transform:capitalize;display:inline-block}
+.badge.concern{background:#f2ddc5;color:#7d5433}
+/* Concern-level badge tones. Extend .badge / .badge.concern above, staying in the
+   same amber and red families already used by .stat.warn / .stat.danger in
+   checker/checker.css so the two sections read as one app. */
+.badge.warn{background:#f7e3b8;color:#6b5013}
+.badge.danger{background:#f7d7d8;color:#8f1c21}
+
+/* Collapsible section inside a card (the concern-signal breakdown). Uses the same
+   teal as .pillButton and the .muted type size. Signal rows themselves reuse
+   .elderItem, so no extra row styling is needed. */
+.disclosure{cursor:pointer;font-size:12px;color:#087d72;padding:10px 0}
+.disclosure::marker{color:#087d72}
+
+/* Billing form on the Premium checkout. Borders, radii and the teal focus ring match
+   the admin form controls in admin/checkers/checkers.css so the two feel like one app. */
+.billingForm{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.billingForm label{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.billingForm label.wide{grid-column:1 / -1}
+.billingForm input{border:1px solid #cbd9d2;border-radius:12px;padding:11px 14px;font:inherit;font-size:14px;background:#fff;color:#20231f}
+.billingForm input:focus{outline:none;border-color:#087d72;box-shadow:0 0 0 3px #087d7222}
+.billingForm small{font-size:11px}
+@media(max-width:640px){.billingForm{grid-template-columns:1fr}}

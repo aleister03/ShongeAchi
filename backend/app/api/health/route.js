@@ -1,5 +1,5 @@
-import connectDB from "@/lib/mongodb";
-import { failure, success } from "@/lib/api";
+import connectDB from "@/lib/mongodb.js";
+import { failure, success } from "@/lib/api.js";
 
 export async function GET() {
   try {

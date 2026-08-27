@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiRequest } from "@/app/lib/api";
-import { Badge, CapacityMeter, Card, ErrorMessage } from "@/app/components/ui/AdminUI";
+import { apiRequest } from "@/app/lib/api.js";
+import { Badge, CapacityMeter, Card, ErrorMessage } from "@/app/components/ui/AdminUI.js";
 
 const initials = (name) => name.split(/\s+/).map((word) => word[0]).slice(0, 2).join("").toUpperCase();
 

@@ -1,18 +1,23 @@
-import connectDB from "@/lib/mongodb";
-import Visit from "@/models/Visit";
-import Elder from "@/models/Elder";
-import { ApiError, assertObjectId, failure, success } from "@/lib/api";
+import connectDB from "@/lib/mongodb.js";
+import Visit from "@/models/Visit.js";
+import Elder from "@/models/Elder.js";
+import { ApiError, assertObjectId, failure, success } from "@/lib/api.js";
+import { requireAuth, assertElderAccess } from "@/lib/auth.js";
+import { assertPremium } from "@/lib/subscription.js";
+import { deriveLevels } from "@/lib/deriveLevels.js";
 
-export async function GET(_request, context) {
+export async function GET(request, context) {
   try {
+    const auth = requireAuth(request, ["admin", "checker", "family"]);
     await connectDB();
     const { id } = await context.params;
     assertObjectId(id, "elder id");
-    const elder = await Elder.findById(id);
-    if (!elder) {
-      throw new ApiError(404, "Elder not found");
-    }
-    const visits = await Visit.find({ elderId: id }).sort({ visitDate: -1 }).limit(10);
+    const elder = await Elder.findById(id); 
+    if (!elder) throw new ApiError(404, "Elder not found");
+    const rawVisits = await Visit.find({ elderId: id }).sort({ visitDate: -1 }).limit(10);
+    const visits = rawVisits.map((v) => ({ ...v.toObject(), ...deriveLevels(v.responses) }));
+    assertElderAccess(auth, elder);
+    assertPremium(auth, elder, "AI-generated summaries");
     const concernedCount = visits.filter(v => v.status === "Concerned").length;
     const noAnswerCount = visits.filter(v => v.status === "No Answer").length;
     const poorAppetiteCount = visits.filter(v => v.appetiteLevel === "Poor").length;

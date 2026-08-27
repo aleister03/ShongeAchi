@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";
 
 export class ApiError extends Error {
   constructor(status, message) {

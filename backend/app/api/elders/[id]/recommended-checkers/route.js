@@ -1,17 +1,20 @@
-import connectDB from "@/lib/mongodb";
-import { ApiError, assertObjectId, failure, success } from "@/lib/api";
-import { serializeChecker } from "@/lib/checkers";
-import Checker from "@/models/Checker";
-import Elder from "@/models/Elder";
-import Visit from "@/models/Visit";
+import connectDB from "@/lib/mongodb.js";
+import { ApiError, assertObjectId, failure, success } from "@/lib/api.js";
+import { serializeChecker, matchesServiceArea } from "@/lib/checkers.js";
+import { formatAddress } from "@/lib/address.js";
+import Checker from "@/models/Checker.js";
+import Elder from "@/models/Elder.js";
+import Visit from "@/models/Visit.js";
+import { requireAuth } from "@/lib/auth.js";
+
+
 
 const WEIGHTS = { location: 40, workload: 30, experience: 20, conditionMatch: 10 };
 
+// Same rule as before, now shared with the admin analytics dashboard via
+// lib/checkers so both screens agree on which checkers count as nearby.
 function locationScore(checker, elder) {
-  if (!checker.serviceArea || !elder.address) return 0;
-  const area = checker.serviceArea.toLowerCase();
-  const address = elder.address.toLowerCase();
-  return address.includes(area) || area.includes(address) ? WEIGHTS.location : 0;
+  return matchesServiceArea(checker, elder) ? WEIGHTS.location : 0;
 }
 
 function workloadScore(checker) {
@@ -29,8 +32,9 @@ function conditionMatchScore(checker, conditionVisitCounts) {
   return Math.round((Math.min(count, 5) / 5) * WEIGHTS.conditionMatch);
 }
 
-export async function GET(_request, context) {
+export async function GET(request, context) {
   try {
+    requireAuth(request, ["admin"]);
     await connectDB();
     const { id } = await context.params;
     assertObjectId(id, "elder id");
@@ -88,7 +92,7 @@ export async function GET(_request, context) {
       elder: {
         _id: elder._id,
         name: elder.name,
-        address: elder.address,
+        address: formatAddress(elder.address),
         medicalConditions: elder.medicalConditions,
       },
       recommendations: ranked,
