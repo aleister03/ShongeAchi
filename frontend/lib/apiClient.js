@@ -5,8 +5,17 @@ async function request(path, options = {}) {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || "Request failed");
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const error = new Error(json?.error || "Request failed");
+    // CHANGED: the status code used to be dropped entirely, so callers
+    // that need to tell "Premium required" (402) apart from a genuine
+    // failure had no way to do it except fragile string-matching on the
+    // message. Carrying the real status lets them check err.status
+    // directly (see ConcernAssessment.js for the payoff).
+    error.status = res.status;
+    throw error;
+  }
   return json;
 }
 

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { buildVisitResponses } from "./lib/buildVisitResponses.mjs";
 
 function loadEnvLocal() {
   if (process.env.MONGODB_URI) return;
@@ -148,24 +149,24 @@ async function seed() {
 
       let visit;
       if (weeksAgo >= 5) {
-        visit = { status: "Fine", appetiteLevel: "Good", mobilityLevel: "Good", moodLevel: "Good", medicationTaken: true, notes: "" };
+        visit = { status: "Fine", responses: buildVisitResponses({ appetite: "Good", mobility: "Good", mood: "Good", medicationTaken: true, notes: "" }) };
       } else if (weeksAgo === 4) {
         visit =
           dayCode === scheduleDays[scheduleDays.length - 1]
-            ? { status: "Concerned", appetiteLevel: "Poor", mobilityLevel: "Fair", moodLevel: "Fair", medicationTaken: true, notes: "Seemed a bit low energy, ate very little." }
-            : { status: "Fine", appetiteLevel: "Fair", mobilityLevel: "Fair", moodLevel: "Good", medicationTaken: true, notes: "" };
+            ? { status: "Concerned", responses: buildVisitResponses({ appetite: "Poor", mobility: "Fair", mood: "Fair", medicationTaken: true, notes: "Seemed a bit low energy, ate very little." }) }
+            : { status: "Fine", responses: buildVisitResponses({ appetite: "Fair", mobility: "Fair", mood: "Good", medicationTaken: true, notes: "" }) };
       } else if (weeksAgo === 3) {
         if (dayCode === scheduleDays[0]) {
-          visit = { status: "No Answer", appetiteLevel: "Fair", mobilityLevel: "Fair", moodLevel: "Fair", medicationTaken: false, notes: "No answer at the door, called family." };
+          visit = { status: "No Answer", responses: buildVisitResponses({ appetite: "Fair", mobility: "Fair", mood: "Fair", medicationTaken: false, notes: "No answer at the door, called family." }) };
         } else if (scheduleDays[1] && dayCode === scheduleDays[1]) {
-          visit = { status: "Concerned", appetiteLevel: "Poor", mobilityLevel: "Poor", moodLevel: "Fair", medicationTaken: false, notes: "Appetite still poor, mobility noticeably worse this week." };
+          visit = { status: "Concerned", responses: buildVisitResponses({ appetite: "Poor", mobility: "Poor", mood: "Fair", medicationTaken: false, notes: "Appetite still poor, mobility noticeably worse this week." }) };
         } else {
-          visit = { status: "Fine", appetiteLevel: "Poor", mobilityLevel: "Fair", moodLevel: "Fair", medicationTaken: true, notes: "Improving slightly but still not eating much." };
+          visit = { status: "Fine", responses: buildVisitResponses({ appetite: "Poor", mobility: "Fair", mood: "Fair", medicationTaken: true, notes: "Improving slightly but still not eating much." }) };
         }
       } else if (weeksAgo === 2) {
-        visit = { status: "Fine", appetiteLevel: "Fair", mobilityLevel: "Fair", moodLevel: "Good", medicationTaken: true, notes: "Doing better, back to her usual self at times." };
+        visit = { status: "Fine", responses: buildVisitResponses({ appetite: "Fair", mobility: "Fair", mood: "Good", medicationTaken: true, notes: "Doing better, back to her usual self at times." }) };
       } else {
-        visit = { status: "Fine", appetiteLevel: "Good", mobilityLevel: "Good", moodLevel: "Good", medicationTaken: true, notes: "" };
+        visit = { status: "Fine", responses: buildVisitResponses({ appetite: "Good", mobility: "Good", mood: "Good", medicationTaken: true, notes: "" }) };
       }
 
       const visitDate = makeVisitDate(d, schedHour, schedMinute);

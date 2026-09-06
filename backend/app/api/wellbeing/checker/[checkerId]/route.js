@@ -3,6 +3,7 @@ import Elder from "@/models/Elder";
 import Checker from "@/models/Checker";
 import Visit from "@/models/Visit";
 import { computeConcernMetrics, applyOverride } from "@/lib/concernScore";
+import { getPlatformConfig } from "@/lib/platformConfig";
 import { NextResponse } from "next/server";
 
 // GET /api/wellbeing/checker/[checkerId]
@@ -26,11 +27,13 @@ export async function GET(request, context) {
     if (!checker) return NextResponse.json({ error: "Checker not found" }, { status: 404 });
 
     const assignedElders = await Elder.find({ assignedCheckerId: checkerId }).sort({ name: 1 });
+    const platformConfig = await getPlatformConfig();
+    const thresholds = platformConfig.concernScoreThresholds;
 
     const elders = await Promise.all(
       assignedElders.map(async (elder) => {
         const visits = await Visit.find({ elderId: elder._id }).sort({ visitDate: 1 });
-        const metrics = applyOverride(computeConcernMetrics(visits), elder);
+        const metrics = applyOverride(computeConcernMetrics(visits, new Date(), thresholds), elder, thresholds);
         return {
           elderId: elder._id,
           name: elder.name,

@@ -17,8 +17,18 @@ function getScheduledDateTime(now, scheduledTime) {
   return dt;
 }
 
-function checkElder(elder, visits, now) {
-  const escalateAfterHours = elder.visitSchedule?.escalateAfterHours ?? 4;
+function checkElder(elder, visits, now, platformConfig = null) {
+  const baseEscalateAfterHours = elder.visitSchedule?.escalateAfterHours ?? 4;
+  // --- NEW: Platform Configuration — Disaster Mode. While active, the
+  // window is capped at platformConfig.disasterMode.reducedEscalateAfterHours,
+  // taking whichever is TIGHTER — this can only shrink an elder's window,
+  // never loosen it (an elder configured for a stricter window than the
+  // disaster-mode ceiling keeps their own, stricter setting).
+  const disasterActive = platformConfig?.disasterMode?.enabled;
+  const escalateAfterHours = disasterActive
+    ? Math.min(baseEscalateAfterHours, platformConfig.disasterMode.reducedEscalateAfterHours ?? baseEscalateAfterHours)
+    : baseEscalateAfterHours;
+  // ---------------------------------------------------------------------
   const scheduledTime = elder.visitSchedule?.scheduledTime || "10:00";
   const todaysVisit = visits.find((v) => isSameDay(new Date(v.visitDate), now));
 
@@ -68,8 +78,9 @@ function checkElder(elder, visits, now) {
  * @param {Map<string, Array>} visitsByElderId - elderId (string) -> that elder's visits.
  * @param {Set<string>} openElderIds - elderIds (string) that already have an open escalation.
  * @param {Date} [now]
+ * @param {object|null} [platformConfig] - see lib/platformConfig.js; drives Disaster Mode.
  */
-function computeEscalations(elders, visitsByElderId, openElderIds, now = new Date()) {
+function computeEscalations(elders, visitsByElderId, openElderIds, now = new Date(), platformConfig = null) {
   const results = [];
   for (const elder of elders) {
     const elderId = String(elder._id);
@@ -77,7 +88,7 @@ function computeEscalations(elders, visitsByElderId, openElderIds, now = new Dat
     if (!elder.assignedCheckerId) continue; // nothing to escalate against yet
 
     const visits = visitsByElderId.get(elderId) || [];
-    const finding = checkElder(elder, visits, now);
+    const finding = checkElder(elder, visits, now, platformConfig);
     if (finding) {
       results.push({ elderId, checkerId: elder.assignedCheckerId, ...finding });
     }

@@ -5,10 +5,17 @@ import Visit from "@/models/Visit";
 import Escalation from "@/models/Escalation";
 import { computeEscalations } from "@/lib/escalationEngine";
 import { notifyFamily } from "@/lib/notifyFamily";
+import { getPlatformConfig } from "@/lib/platformConfig";
 
 
 export async function runEscalationSweep() {
   await connectDB();
+
+  // --- NEW: Platform Configuration — drives Disaster Mode (tighter
+  // escalation window platform-wide) and whether notifications fire at
+  // all for newly raised escalations.
+  const platformConfig = await getPlatformConfig();
+  // ---------------------------------------------------------------------
 
   const elders = await Elder.find({ status: "Assigned" });
   const openEscalations = await Escalation.find({ status: "Open" }).select("elderId");
@@ -29,7 +36,7 @@ export async function runEscalationSweep() {
   }
 
   const now = new Date();
-  const findings = computeEscalations(elders, visitsByElderId, openElderIds, now);
+  const findings = computeEscalations(elders, visitsByElderId, openElderIds, now, platformConfig);
   const elderById = new Map(elders.map((e) => [String(e._id), e]));
 
   const created = await Promise.all(
@@ -49,7 +56,11 @@ export async function runEscalationSweep() {
         ],
       });
 
-      if (elder) {
+      // Respect the Platform Configuration notification toggle — if an
+      // admin has switched escalation notifications off platform-wide,
+      // the Escalation record is still raised (so it shows up in the
+      // admin queue), it just doesn't fan out to notifyFamily().
+      if (elder && platformConfig.notificationRules?.escalationNotificationsEnabled !== false) {
         await notifyFamily(elder, escalation);
       }
 
@@ -57,5 +68,5 @@ export async function runEscalationSweep() {
     })
   );
 
-  return { scanned: elders.length, newEscalations: created.length, escalations: created };
+  return { scanned: elders.length, newEscalations: created.length, escalations: created, disasterModeActive: !!platformConfig.disasterMode?.enabled };
 }

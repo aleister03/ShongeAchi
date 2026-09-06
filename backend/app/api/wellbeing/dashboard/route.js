@@ -3,6 +3,7 @@ import Elder from "@/models/Elder";
 import Checker from "@/models/Checker";
 import Visit from "@/models/Visit";
 import { computeConcernMetrics, applyOverride } from "@/lib/concernScore";
+import { getPlatformConfig } from "@/lib/platformConfig";
 import { NextResponse } from "next/server";
 
 // GET /api/wellbeing/dashboard
@@ -39,9 +40,11 @@ export async function GET(request) {
     }
 
     const now = new Date();
+    const platformConfig = await getPlatformConfig();
+    const thresholds = platformConfig.concernScoreThresholds;
     const scoredElders = elders.map((elder) => {
       const elderVisits = visitsByElderId.get(String(elder._id)) || [];
-      const metrics = applyOverride(computeConcernMetrics(elderVisits, now), elder);
+      const metrics = applyOverride(computeConcernMetrics(elderVisits, now, thresholds), elder, thresholds);
       const lastVisit = elderVisits[elderVisits.length - 1];
       return {
         elderId: elder._id,
@@ -72,6 +75,11 @@ export async function GET(request) {
       stable: scoredElders.filter((e) => e.category === "Stable").length,
       trendingUpThisWeek,
       totalElders: scoredElders.length,
+      // --- NEW: Platform Configuration — lets the admin dashboard show a
+      // "Disaster Mode active" banner without a second request.
+      disasterModeActive: !!platformConfig.disasterMode?.enabled,
+      disasterModeNote: platformConfig.disasterMode?.note || "",
+      // ---------------------------------------------------------------------
     };
 
     // Sort highest concern first — that's what an admin scanning the table wants to see.

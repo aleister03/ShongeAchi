@@ -1,6 +1,7 @@
 
 import fs from "fs";
 import path from "path";
+import { buildVisitResponses } from "./lib/buildVisitResponses.mjs";
 
 // --- Minimal .env.local loader (same pattern as seed-escalation-test.mjs) --
 function loadEnvLocal() {
@@ -108,6 +109,7 @@ async function seed() {
     emergencyContact: {
       name: "Test Contact",
       phone: makePhone(90000001),
+      email: "seed-contact@example.com",
       relationship: "Daughter",
       note: "Seed data — safe to delete",
     },
@@ -124,11 +126,13 @@ async function seed() {
       checkerId: String(checker._id),
       checkerName: checker.name,
       status: v.status,
-      appetiteLevel: v.appetite,
-      mobilityLevel: v.mobility,
-      moodLevel: v.mood,
-      medicationTaken: v.med,
-      notes: v.notes,
+      responses: buildVisitResponses({
+        appetite: v.appetite,
+        mobility: v.mobility,
+        mood: v.mood,
+        medicationTaken: v.med,
+        notes: v.notes,
+      }),
       visitDate,
     });
   }

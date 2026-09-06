@@ -1,0 +1,233 @@
+/* [project]/app/checker/checker.css [app-client] (css) */
+.checkerApp {
+  color: #20231f;
+  background: #fffbdc;
+  min-height: 100vh;
+}
+
+.checkerHeader {
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  justify-content: space-between;
+  align-items: center;
+  gap: 40px;
+  height: 82px;
+  padding: 0 clamp(20px, 4vw, 64px);
+  display: flex;
+}
+
+.checkerBrand {
+  color: #087d72;
+  white-space: nowrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+}
+
+.stats {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  margin: 28px 0 18px;
+  display: grid;
+}
+
+.stat span {
+  color: #555;
+  font-size: 12px;
+}
+
+.stat strong {
+  font-size: 22px;
+  display: block;
+}
+
+.stat.warn strong {
+  color: #c99826;
+}
+
+.stat.danger strong {
+  color: #c92329;
+}
+
+.person {
+  align-items: center;
+  gap: 12px;
+  display: flex;
+}
+
+.avatar {
+  color: #357349;
+  background: #d6f8d7;
+  border-radius: 50%;
+  place-items: center;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  display: grid;
+}
+
+.formStepper {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+  display: flex;
+}
+
+.formStep {
+  color: #555;
+  background: #edf2d9;
+  border-radius: 20px;
+  padding: 8px 18px;
+  font-size: 12px;
+}
+
+.formStep.active {
+  color: #20231f;
+  background: #dbe8bd;
+  font-weight: 600;
+}
+
+.fieldGroup {
+  margin-top: 18px;
+}
+
+.fieldGroup label {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  display: block;
+}
+
+.pillChoices {
+  flex-wrap: wrap;
+  gap: 10px;
+  display: flex;
+}
+
+.pillChoice {
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #cbd9d2;
+  border-radius: 20px;
+  padding: 9px 18px;
+  font-size: 13px;
+  transition: background .1s, border-color .1s;
+}
+
+.pillChoice:hover {
+  border-color: #087d72;
+}
+
+.pillChoice.selected {
+  color: #fff;
+  background: #087d72;
+  border-color: #087d72;
+}
+
+.fieldGroup select, .fieldGroup textarea, .fieldGroup input, .statusSelect {
+  background: #fff;
+  border: 1px solid #cbd9d2;
+  border-radius: 14px;
+  width: 100%;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.fieldGroup textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+.fieldGroup input {
+  margin-top: 10px;
+}
+
+.statusRow {
+  align-items: center;
+  gap: 14px;
+  display: flex;
+}
+
+.statusRow .statusSelect {
+  max-width: 220px;
+}
+
+.submitBar {
+  background: linear-gradient(to top, #fffbdc 60%, #fffbdc00);
+  margin-top: 8px;
+  padding: 20px 0;
+  position: sticky;
+  bottom: 0;
+}
+
+.submitButton {
+  color: #fff;
+  cursor: pointer;
+  background: #087d72;
+  border: none;
+  border-radius: 99px;
+  padding: 14px 32px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.submitButton:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.resultHero {
+  align-items: center;
+  gap: 20px;
+  padding: 8px 0 20px;
+  display: flex;
+}
+
+.resultScore {
+  color: #087d72;
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.resultScore small {
+  color: #777;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+@media (max-width: 800px) {
+  .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .checkerHeader {
+    padding: 0 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .checkerBrand span {
+    display: none;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+.resultHero {
+  align-items: flex-start;
+}
+
+.resultHero p {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/*# sourceMappingURL=app_checker_checker_css_1igg3k2._.single.css.map*/

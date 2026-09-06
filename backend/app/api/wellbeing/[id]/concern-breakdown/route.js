@@ -1,5 +1,6 @@
 import connectDB from "@/lib/mongodb";
 import Visit from "@/models/Visit";
+import { deriveLevels } from "@/lib/deriveLevels";
 import { NextResponse } from "next/server";
 
 function getLevelLabel(visits, field) {
@@ -15,10 +16,14 @@ export async function GET(request, context) {
   try {
     await connectDB();
     const { id } = await context.params;
-    const visits = await Visit.find({ elderId: id });
-    if (visits.length === 0) {
+    const rawVisits = await Visit.find({ elderId: id });
+    if (rawVisits.length === 0) {
       return NextResponse.json({ success: true, data: { message: "No visits found" } }, { status: 200 });
     }
+    // CHANGED: appetiteLevel/mobilityLevel/moodLevel/medicationTaken are no
+    // longer stored directly — they're derived from the structured
+    // questionnaire responses (see lib/deriveLevels.js).
+    const visits = rawVisits.map((v) => ({ ...v.toObject(), ...deriveLevels(v.responses) }));
     return NextResponse.json({
       success: true,
       data: {
@@ -34,3 +39,4 @@ export async function GET(request, context) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

@@ -1,7 +1,8 @@
 import connectDB from "@/lib/mongodb";
 import Checker from "@/models/Checker";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import bcrypt from "bcryptjs";
+import { geocodeAddressWithFallback } from "@/lib/geo";
 
 export async function POST(request) {
   try {
@@ -33,6 +34,11 @@ export async function POST(request) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
+    // CHANGED: same latency bug as /api/elders POST — geocoding the
+    // proposed service area used to be awaited before Checker.create(),
+    // which could delay this (already slow, base64-photo-carrying)
+    // request by another ~20s and surface as a "Failed to fetch". Create
+    // first, geocode in the background.
     const checker = await Checker.create({
       name,
       phone,
@@ -45,6 +51,17 @@ export async function POST(request) {
       applicationStatus: "Pending",
       verified: false,
       status: "Inactive",
+    });
+
+    after(async () => {
+      try {
+        const coords = await geocodeAddressWithFallback([serviceArea, "Dhaka", "Bangladesh"]);
+        if (coords) {
+          await Checker.updateOne({ _id: checker._id }, { $set: { serviceLocation: coords } });
+        }
+      } catch (err) {
+        console.error("[checkers/signup] Background geocoding failed:", err);
+      }
     });
 
     // never echo the password hash back to the client

@@ -24,6 +24,7 @@
 
 import fs from "fs";
 import path from "path";
+import { buildVisitResponses } from "./lib/buildVisitResponses.mjs";
 
 // --- Minimal .env.local loader -------------------------------------------
 // Plain `node script.mjs` doesn't auto-load Next.js's .env.local the way
@@ -97,6 +98,7 @@ function baseEmergencyContact(suffix) {
   return {
     name: "Test Contact",
     phone: makePhone(90000000 + suffix),
+    email: `seed-contact-${suffix}@example.com`,
     relationship: "Son",
     note: "Seed data — safe to delete",
   };
@@ -139,7 +141,7 @@ async function seed() {
       expected: "Critical escalation: today's visit was marked No Answer",
       escalateAfterHours: 4,
       scheduledToday: true,
-      todaysVisit: { status: "No Answer", appetiteLevel: "Fair", mobilityLevel: "Fair", moodLevel: "Fair", medicationTaken: true },
+      todaysVisit: { status: "No Answer", responses: buildVisitResponses({ appetite: "Fair", mobility: "Fair", mood: "Fair", medicationTaken: true }) },
     },
     {
       key: "concerned",
@@ -147,7 +149,7 @@ async function seed() {
       expected: "Elevated escalation: today's visit was marked Concerned",
       escalateAfterHours: 4,
       scheduledToday: true,
-      todaysVisit: { status: "Concerned", notes: "Seemed disoriented, appetite poor", appetiteLevel: "Poor", mobilityLevel: "Fair", moodLevel: "Poor", medicationTaken: false },
+      todaysVisit: { status: "Concerned", responses: buildVisitResponses({ appetite: "Poor", mobility: "Fair", mood: "Poor", medicationTaken: false, notes: "Seemed disoriented, appetite poor" }) },
     },
     {
       key: "missed-visit",
@@ -163,7 +165,7 @@ async function seed() {
       expected: "No escalation: visited today and marked Fine",
       escalateAfterHours: 4,
       scheduledToday: true,
-      todaysVisit: { status: "Fine", appetiteLevel: "Good", mobilityLevel: "Good", moodLevel: "Good", medicationTaken: true },
+      todaysVisit: { status: "Fine", responses: buildVisitResponses({ appetite: "Good", mobility: "Good", mood: "Good", medicationTaken: true }) },
     },
     {
       key: "not-scheduled-control",

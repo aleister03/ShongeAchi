@@ -1,7 +1,8 @@
 import connectDB from "@/lib/mongodb";
 import Checker from "@/models/Checker";
 import Elder from "@/models/Elder";
-import { NextResponse } from "next/server";
+import { geocodeAddressWithFallback } from "@/lib/geo";
+import { NextResponse, after } from "next/server";
 
 export async function GET(request) {
   try {
@@ -44,7 +45,26 @@ export async function POST(request) {
   try {
     await connectDB();
     const body = await request.json();
+
+    // CHANGED: same latency bug as /api/elders POST — geocoding used to be
+    // awaited before Checker.create(), so a slow/rate-limited Nominatim
+    // call could delay the response by up to ~20s and surface as a
+    // "Failed to fetch". Create first, geocode in the background.
     const checker = await Checker.create(body);
+
+    if (checker.serviceArea && !checker.serviceLocation?.lat) {
+      after(async () => {
+        try {
+          const coords = await geocodeAddressWithFallback([checker.serviceArea, "Dhaka", "Bangladesh"]);
+          if (coords) {
+            await Checker.updateOne({ _id: checker._id }, { $set: { serviceLocation: coords } });
+          }
+        } catch (err) {
+          console.error("[checkers] Background geocoding failed:", err);
+        }
+      });
+    }
+
     return NextResponse.json({ success: true, data: checker }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

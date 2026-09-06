@@ -1,10 +1,11 @@
 import connectDB from "@/lib/mongodb";
 import Visit from "@/models/Visit";
 import Elder from "@/models/Elder";
+import { deriveLevels } from "@/lib/deriveLevels";
 import { NextResponse } from "next/server";
 
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const BASE_URL = (process.env.XAI_BASE_URL || "https://api.x.ai/v1").replace(/\/$/, "");
+const MODEL = (process.env.GROK_MODEL || "grok-4.5").trim();
 
 // Builds a compact, factual description of the visit history for the model
 // to reason over — no PII beyond the elder's first name, and no medical
@@ -30,7 +31,7 @@ function buildPrompt(elder, visits) {
   );
 }
 
-// Fallback used if no API key is configured, or the Gemini call fails —
+// Fallback used if no API key is configured, or the Grok call fails —
 // keeps the endpoint (and the demo) working even without AI configured.
 function templateSummary(elder, visits) {
   const concernedCount = visits.filter((v) => v.status === "Concerned").length;
@@ -51,28 +52,54 @@ function templateSummary(elder, visits) {
   };
 }
 
-async function callGemini(elder, visits) {
-  const apiKey = process.env.GEMINI_API_KEY;
+let loggedAuthWarning = false;
+let loggedModelNotFoundWarning = false;
+
+async function callGrok(elder, visits) {
+  const apiKey = process.env.XAI_API_KEY;
   if (!apiKey) return null;
 
   const prompt = buildPrompt(elder, visits);
 
-  const res = await fetch(GEMINI_URL, {
+  const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "x-goog-api-key": apiKey,
     },
     body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 300 },
+      model: MODEL,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.4,
+      max_tokens: 300,
     }),
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    // A deprecated/unavailable model name (404) — xAI's lineup moves
+    // fast, and this route's model choice can drift out of sync with
+    // lib/ai.js's if only one gets updated.
+    if (res.status === 404 && !loggedModelNotFoundWarning) {
+      loggedModelNotFoundWarning = true;
+      const body = await res.text().catch(() => "");
+      console.error(
+        `\n[summary] Grok returned 404 — the model "${MODEL}" is likely unavailable for this ` +
+        `account. Response body: ${body.slice(0, 300)}\n`
+      );
+    }
+    if ((res.status === 401 || res.status === 403) && !loggedAuthWarning) {
+      loggedAuthWarning = true;
+      const body = await res.text().catch(() => "");
+      console.error(
+        `\n[summary] Grok returned ${res.status} — check XAI_API_KEY and that the xAI account ` +
+        `has billing/credits set up. Response body: ${body.slice(0, 300)}\n`
+      );
+    }
+    return null;
+  }
 
   const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = data?.choices?.[0]?.message?.content;
   if (!text) return null;
 
   const recommendMatch = text.match(/RECOMMENDATION:\s*(increase|maintain)/i);
@@ -81,7 +108,7 @@ async function callGemini(elder, visits) {
   return {
     summary,
     recommendation: recommendMatch?.[1]?.toLowerCase() === "increase" ? "Increase visit frequency" : "Continue current schedule",
-    source: "gemini",
+    source: "grok",
   };
 }
 
@@ -92,12 +119,16 @@ export async function GET(request, context) {
     const elder = await Elder.findById(id);
     if (!elder) return NextResponse.json({ error: "Elder not found" }, { status: 404 });
 
-    const visits = await Visit.find({ elderId: id }).sort({ visitDate: -1 }).limit(10);
+    const rawVisits = await Visit.find({ elderId: id }).sort({ visitDate: -1 }).limit(10);
+    // CHANGED: appetiteLevel/mobilityLevel/notes are no longer stored
+    // directly on the Visit — they're derived from the structured
+    // questionnaire responses (see lib/deriveLevels.js).
+    const visits = rawVisits.map((v) => ({ ...v.toObject(), ...deriveLevels(v.responses) }));
 
     let result = null;
     if (visits.length > 0) {
       try {
-        result = await callGemini(elder, [...visits].reverse());
+        result = await callGrok(elder, [...visits].reverse());
       } catch {
         result = null;
       }

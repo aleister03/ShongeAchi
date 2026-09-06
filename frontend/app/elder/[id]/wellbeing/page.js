@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import ElderNavbar from "@/app/components/ElderNavbar";
 import TrendChart from "@/app/components/TrendChart";
+import ConcernAssessment from "@/app/components/ConcernAssessment";
 import { api } from "@/lib/apiClient";
 
 const WEEK_OPTIONS = [4, 6, 8, 12];
@@ -174,6 +175,8 @@ export default function WellbeingHistory() {
             </div>
           )}
         </div>
+
+        <ConcernAssessment elderId={id} familyMemberId={familyMemberId} />
       </div>
     </main>
   );

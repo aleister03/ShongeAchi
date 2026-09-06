@@ -3,6 +3,7 @@ import Visit from "@/models/Visit";
 import Elder from "@/models/Elder";
 import Checker from "@/models/Checker";
 import { computeConcernMetrics, applyOverride } from "@/lib/concernScore";
+import { getPlatformConfig } from "@/lib/platformConfig";
 import { NextResponse } from "next/server";
 
 
@@ -37,7 +38,9 @@ export async function GET(request, context) {
     }
 
     const visits = await Visit.find({ elderId: id }).sort({ visitDate: 1 });
-    const metrics = applyOverride(computeConcernMetrics(visits), elder);
+    const platformConfig = await getPlatformConfig();
+    const thresholds = platformConfig.concernScoreThresholds;
+    const metrics = applyOverride(computeConcernMetrics(visits, new Date(), thresholds), elder, thresholds);
 
     return NextResponse.json(
       {
@@ -108,7 +111,9 @@ export async function PATCH(request, context) {
     await elder.save();
 
     const visits = await Visit.find({ elderId: id }).sort({ visitDate: 1 });
-    const metrics = applyOverride(computeConcernMetrics(visits), elder);
+    const platformConfig = await getPlatformConfig();
+    const thresholds = platformConfig.concernScoreThresholds;
+    const metrics = applyOverride(computeConcernMetrics(visits, new Date(), thresholds), elder, thresholds);
 
     return NextResponse.json(
       {

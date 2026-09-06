@@ -1,0 +1,15 @@
+{
+  "/admin/checkers/page": "app/admin/checkers/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/checker/elders/[id]/log-visit/page": "app/checker/elders/[id]/log-visit/page.js",
+  "/checker/page": "app/checker/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/elder/[id]/profile/page": "app/elder/[id]/profile/page.js",
+  "/elder/[id]/subscription/checkout/bkash/page": "app/elder/[id]/subscription/checkout/bkash/page.js",
+  "/elder/[id]/subscription/checkout/page": "app/elder/[id]/subscription/checkout/page.js",
+  "/elder/[id]/subscription/page": "app/elder/[id]/subscription/page.js",
+  "/page": "app/page.js",
+  "/pricing/page": "app/pricing/page.js",
+  "/register-elder/page": "app/register-elder/page.js"
+}

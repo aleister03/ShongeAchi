@@ -189,6 +189,25 @@ export default function AdminDashboard() {
           Every elder&apos;s wellbeing trend, built from visit history rather than a single visit
         </p>
 
+        {/* --- NEW: Platform Configuration — Disaster Mode banner --- */}
+        {!loading && data?.summary?.disasterModeActive && (
+          <div className="flex items-center justify-between bg-red-50 border border-red-200 text-red-700 rounded-2xl px-6 py-4 mb-8">
+            <div>
+              <p className="font-bold">⚠ Disaster Mode is active</p>
+              <p className="text-sm text-red-600/80">
+                {data.summary.disasterModeNote || "Every elder's missed-check-in window is tightened platform-wide."}
+              </p>
+            </div>
+            <a
+              href="/admin/platform-config"
+              className="px-4 py-2 rounded-full bg-white border border-red-300 text-sm font-medium hover:bg-red-100 transition"
+            >
+              Manage in Settings
+            </a>
+          </div>
+        )}
+        {/* ------------------------------------------------------------------ */}
+
         <div className="grid grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-2xl p-6 shadow-sm">
             <p className="text-sm text-gray-500 mb-1">Critical (&gt;70%)</p>
