@@ -1,7 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import AdminNavbar from "../../components/AdminNavbar";
 import { api } from "@/lib/apiClient";
+
+// Leaflet touches `window` at load time, so it can never run during SSR.
+const AssignmentMap = dynamic(() => import("../../components/AssignmentMap"), { ssr: false });
 
 export default function IntelligentAssignment() {
   const [waiting, setWaiting] = useState([]);
@@ -9,14 +13,27 @@ export default function IntelligentAssignment() {
   const [recommendations, setRecommendations] = useState([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [rejected, setRejected] = useState([]);
+  const [requests, setRequests] = useState([]);
 
   useEffect(() => {
     loadWaiting();
+    loadRequests();
   }, []);
 
   async function loadWaiting() {
     const res = await api.get("/api/elders?status=Waiting");
     setWaiting(res.data);
+  }
+
+  async function loadRequests() {
+    const res = await api.get("/api/checker-requests?status=Pending");
+    setRequests(res.data);
+  }
+
+  async function resolveRequest(id, approveIt) {
+    await api.post(`/api/checker-requests/${id}/resolve`, { approve: approveIt });
+    loadRequests();
+    loadWaiting(); // an approved "Remove" puts the elder back in the Waiting list
   }
 
   async function selectElder(elder) {
@@ -47,6 +64,45 @@ export default function IntelligentAssignment() {
       <AdminNavbar />
       <div className="px-10 py-10">
         <h1 className="text-3xl font-bold text-[#1a1a1a] mb-8">Intelligent Checker Assignment</h1>
+
+        {requests.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+            <h2 className="font-bold text-[#1a1a1a] underline mb-4">
+              Pending Requests <span className="text-sm font-normal text-gray-400">({requests.length})</span>
+            </h2>
+            <div className="flex flex-col gap-3">
+              {requests.map((r) => (
+                <div key={r._id} className="flex items-center justify-between bg-[#f0f7ec] rounded-xl px-5 py-4">
+                  <div>
+                    <p className="font-medium text-[#1a1a1a]">{r.elderName}</p>
+                    <p className="text-xs text-gray-500">
+                      {r.type === "Remove" ? (
+                        <>Requesting removal of <strong>{r.previousCheckerName}</strong></>
+                      ) : (
+                        "Requesting a checker be assigned"
+                      )}
+                    </p>
+                    {r.reason && <p className="text-xs text-gray-400 mt-1">&ldquo;{r.reason}&rdquo;</p>}
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => resolveRequest(r._id, true)}
+                      className="px-5 py-2 rounded-full bg-[#4a8a5a] text-white text-sm font-medium hover:bg-[#3a7248] transition"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => resolveRequest(r._id, false)}
+                      className="px-5 py-2 rounded-full bg-[#e8a2a2] text-white text-sm font-medium hover:bg-[#dc8b8b] transition"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-[320px_1fr] gap-6">
           <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -95,6 +151,15 @@ export default function IntelligentAssignment() {
                   </span>
                 </div>
 
+                {/* --- NEW: OpenStreetMap/Leaflet view of the elder + candidate checkers --- */}
+                <div className="mb-6">
+                  <AssignmentMap
+                    elder={selected}
+                    recommendations={recommendations.filter((r) => !rejected.includes(r.checker._id))}
+                  />
+                </div>
+                {/* ------------------------------------------------------------------------- */}
+
                 <div className="flex flex-col gap-4">
                   {loadingRecs ? (
                     <p className="text-sm text-gray-400">Finding the best checkers...</p>
@@ -111,6 +176,7 @@ export default function IntelligentAssignment() {
                               <p className="font-medium text-[#1a1a1a]">{rec.checker.name}</p>
                               <p className="text-xs text-gray-500">
                                 {rec.checker.serviceArea} · {rec.checker.experienceYears} yrs · {rec.assignedCount}/{rec.checker.maxCapacity} assigned · match {rec.score}%
+                                {rec.distanceKm != null && <> · {rec.distanceKm.toFixed(1)} km away</>}
                               </p>
                             </div>
                           </div>

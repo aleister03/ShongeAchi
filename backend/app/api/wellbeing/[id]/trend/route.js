@@ -2,6 +2,7 @@ import connectDB from "@/lib/mongodb";
 import Visit from "@/models/Visit";
 import Elder from "@/models/Elder";
 import { computeConcernMetrics } from "@/lib/concernScore";
+import { getPlatformConfig } from "@/lib/platformConfig";
 import { NextResponse } from "next/server";
 
 // GET /api/wellbeing/[id]/trend?weeks=6
@@ -33,6 +34,8 @@ export async function GET(request, context) {
     if (!elder) return NextResponse.json({ error: "Elder not found" }, { status: 404 });
 
     const allVisits = await Visit.find({ elderId: id }).sort({ visitDate: 1 });
+    const platformConfig = await getPlatformConfig();
+    const thresholds = platformConfig.concernScoreThresholds;
 
     const now = new Date();
     const points = [];
@@ -40,7 +43,7 @@ export async function GET(request, context) {
       const cutoff = new Date(now.getTime() - i * MS_PER_WEEK);
       const visitsSoFar = allVisits.filter((v) => new Date(v.visitDate) <= cutoff);
       const hasData = visitsSoFar.length > 0;
-      const metrics = hasData ? computeConcernMetrics(visitsSoFar, cutoff) : null;
+      const metrics = hasData ? computeConcernMetrics(visitsSoFar, cutoff, thresholds) : null;
       points.push({
         weekLabel: `Week ${weeks - i}`,
         weekEnding: cutoff,

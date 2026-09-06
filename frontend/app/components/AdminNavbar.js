@@ -1,17 +1,31 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
+// CHANGED: this used to link to /admin/elders and /admin/subscriptions,
+// neither of which existed as pages (404) — while /admin/assignments and
+// /admin/checker-requests, which DID exist, weren't linked from anywhere
+// in the nav at all. Pointing the nav at the real pages, and re-adding
+// Subscriptions now that it's backed by a real payment gateway.
 const links = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/checkers", label: "Checkers" },
-  { href: "/admin/elders", label: "Elders" },
+  { href: "/admin/assignments", label: "Assignments" },
+  { href: "/admin/checker-requests", label: "Requests" },
   { href: "/admin/subscriptions", label: "Subscriptions" },
+  { href: "/admin/platform-config", label: "Settings" },
 ];
 
 export default function AdminNavbar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch("/api/admin-auth", { method: "DELETE" });
+    router.push("/");
+    router.refresh();
+  }
 
   return (
     <nav className="w-full flex items-center justify-between px-10 py-4 bg-[#FBF3D9] border-b border-[#f0e6c0]">
@@ -34,8 +48,11 @@ export default function AdminNavbar() {
         ))}
       </div>
 
-      <button className="px-5 py-2 rounded-full bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
-        Admin Profile
+      <button
+        onClick={handleLogout}
+        className="px-5 py-2 rounded-full bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+      >
+        Log out
       </button>
     </nav>
   );

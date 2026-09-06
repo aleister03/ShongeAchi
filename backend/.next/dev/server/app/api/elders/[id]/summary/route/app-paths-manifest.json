@@ -1,0 +1,3 @@
+{
+  "/api/elders/[id]/summary/route": "app/api/elders/[id]/summary/route.js"
+}

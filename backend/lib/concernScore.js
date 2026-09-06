@@ -20,6 +20,25 @@
 // makes it reusable by both the per-elder endpoint and the dashboard
 // endpoint, and easy to unit test.
 
+// CHANGED: Visit documents now store a structured questionnaire
+// (`responses: [{questionId, answer, detail}]`, see lib/visitQuestions.js)
+// instead of flat appetiteLevel/mobilityLevel/moodLevel/medicationTaken
+// fields directly. lib/deriveLevels.js is the single place that knows how
+// to turn those responses back into the level fields this scoring engine
+// was built around — so normalizing here means every formula below (the
+// weights, the streak bonuses, the trend math, all already tested) stays
+// completely unchanged. A visit that still has the old flat fields
+// directly (from data seeded before this migration) passes through
+// untouched, since deriveLevels only overrides fields it can actually
+// derive from `responses`.
+import { deriveLevels } from "./deriveLevels.js";
+
+function normalizeVisit(visit) {
+  if (!visit) return visit;
+  if (!visit.responses || visit.responses.length === 0) return visit;
+  return { ...visit, ...deriveLevels(visit.responses) };
+}
+
 const WINDOW_DAYS = 42; // 6 weeks — matches the "6-week trend" shown in the UI
 
 // Points added per visit for each concerning observation. These weights are
@@ -74,7 +93,13 @@ function daysBetween(a, b) {
  * @param {Date} [now] - "current time", overridable for tests.
  * @returns {object} metrics — see fields below.
  */
-function computeConcernMetrics(allVisits, now = new Date()) {
+// Default category thresholds — unchanged from the original hardcoded
+// values. Callers may override via the `thresholds` param (see Platform
+// Configuration, lib/platformConfig.js) without any change in behavior
+// for callers that don't pass one.
+const DEFAULT_THRESHOLDS = { critical: 70, elevated: 40 };
+
+function computeConcernMetrics(allVisits, now = new Date(), thresholds = DEFAULT_THRESHOLDS) {
   if (!allVisits || allVisits.length === 0) {
     return {
       concernScore: 0,
@@ -90,8 +115,9 @@ function computeConcernMetrics(allVisits, now = new Date()) {
   //    older than that still exist in Mongo, we just don't let them affect
   //    "current" concern — a bad visit two months ago shouldn't keep an
   //    elder flagged as Critical forever.
+  const normalizedVisits = allVisits.map(normalizeVisit);
   const windowStart = new Date(now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
-  const windowVisits = allVisits
+  const windowVisits = normalizedVisits
     .filter((v) => new Date(v.visitDate) >= windowStart)
     .sort((a, b) => new Date(a.visitDate) - new Date(b.visitDate)); // oldest -> newest
 
@@ -99,7 +125,7 @@ function computeConcernMetrics(allVisits, now = new Date()) {
   // window (e.g. a checker hasn't visited in 7+ weeks — still worth scoring).
   const scoredVisits = windowVisits.length > 0
     ? windowVisits
-    : [...allVisits].sort((a, b) => new Date(a.visitDate) - new Date(b.visitDate)).slice(-3);
+    : [...normalizedVisits].sort((a, b) => new Date(a.visitDate) - new Date(b.visitDate)).slice(-3);
 
   // 2. Recency-weighted average, not a flat average. Visit 1 of 6 gets
   //    weight 1, visit 6 gets weight 6 — so three straight recent bad visits
@@ -148,10 +174,11 @@ function computeConcernMetrics(allVisits, now = new Date()) {
     )
   );
 
-  // 4. Category — thresholds match the dashboard's own legend.
+  // 4. Category — thresholds match the dashboard's own legend (configurable
+  //    via Platform Configuration; defaults unchanged if not provided).
   let category = "Stable";
-  if (concernScore > 70) category = "Critical";
-  else if (concernScore >= 40) category = "Elevated";
+  if (concernScore > thresholds.critical) category = "Critical";
+  else if (concernScore >= thresholds.elevated) category = "Elevated";
 
   // 5. 6-week trend: how much has the score moved since the start of the
   //    window, and over how many weeks.
@@ -200,7 +227,7 @@ function computeConcernMetrics(allVisits, now = new Date()) {
  *
  * Does not mutate `metrics` — returns a new object.
  */
-function applyOverride(metrics, elder) {
+function applyOverride(metrics, elder, thresholds = DEFAULT_THRESHOLDS) {
   const override = elder?.concernOverride;
   if (!override || override.score === null || override.score === undefined) {
     return { ...metrics, override: null };
@@ -208,8 +235,8 @@ function applyOverride(metrics, elder) {
 
   const concernScore = override.score;
   let category = "Stable";
-  if (concernScore > 70) category = "Critical";
-  else if (concernScore >= 40) category = "Elevated";
+  if (concernScore > thresholds.critical) category = "Critical";
+  else if (concernScore >= thresholds.elevated) category = "Elevated";
 
   return {
     ...metrics,
@@ -224,4 +251,4 @@ function applyOverride(metrics, elder) {
   };
 }
 
-export { computeConcernMetrics, applyOverride, WINDOW_DAYS };
+export { computeConcernMetrics, applyOverride, WINDOW_DAYS, DEFAULT_THRESHOLDS };

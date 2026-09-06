@@ -1,6 +1,7 @@
 import connectDB from "@/lib/mongodb";
 import Elder from "@/models/Elder";
-import { NextResponse } from "next/server";
+import { geocodeAddressWithFallback } from "@/lib/geo";
+import { NextResponse, after } from "next/server";
 
 export async function GET(request, context) {
   try {
@@ -39,7 +40,45 @@ export async function PUT(request, context) {
       return NextResponse.json({ error: "You do not have access to edit this elder's profile" }, { status: 403 });
     }
 
+    // CHANGED: the edit form always resends the whole `address` object
+    // without `coordinates` (the frontend never sees or edits that field).
+    // A plain findByIdAndUpdate($set-ing the whole subdocument) would
+    // silently reset coordinates to null on EVERY save — even an edit
+    // that only changed the bio — breaking Intelligent Checker
+    // Assignment's distance scoring for any elder who was ever edited.
+    // Detect whether the address text actually changed: if not, carry the
+    // existing coordinates forward; if it did, re-geocode in the
+    // background (never block the response on this).
+    let addressChanged = false;
+    if (body.address) {
+      const fields = ["flatFloor", "houseNo", "road", "areaTahna", "city", "postalCode", "country"];
+      addressChanged = fields.some((f) => (body.address[f] || "") !== (existing.address?.[f] || ""));
+      if (!addressChanged) {
+        body.address = { ...body.address, coordinates: existing.address?.coordinates || null };
+      }
+    }
+
     const elder = await Elder.findByIdAndUpdate(id, body, { new: true });
+
+    if (addressChanged && elder?.address) {
+      after(async () => {
+        try {
+          const coords = await geocodeAddressWithFallback([
+            elder.address?.road,
+            elder.address?.areaTahna,
+            elder.address?.city,
+            elder.address?.country || "Bangladesh",
+          ]);
+          if (coords) {
+            await Elder.updateOne({ _id: elder._id }, { $set: { "address.coordinates": coords } });
+          }
+        } catch (err) {
+          console.error("[elders] Background re-geocoding on edit failed:", err);
+        }
+      });
+    }
+    // ---------------------------------------------------------------------
+
     return NextResponse.json({ success: true, data: elder }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

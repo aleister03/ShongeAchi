@@ -9,6 +9,11 @@ const TABS = [
   { key: "visits", label: "Visit History" },
   { key: "wellbeing", label: "Wellbeing History" },
   { key: "checkers", label: "Checkers" },
+  { key: "messages", label: "Messages" },
+  // --- NEW: real Premium subscription, backed by SSLCommerz — see
+  // backend lib/subscription.js and lib/sslcommerz.js. ---
+  { key: "subscription", label: "Subscription" },
+  // ---------------------------------------------------------------------------
 ];
 
 export default function ElderNavbar({ elderId, active }) {

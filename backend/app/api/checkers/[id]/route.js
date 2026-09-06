@@ -12,7 +12,7 @@ export async function GET(request, context) {
     if (!checker) return NextResponse.json({ error: "Checker not found" }, { status: 404 });
 
     const assignedElders = await Elder.find({ assignedCheckerId: id }).select(
-      "name address visitSchedule status"
+      "name address visitSchedule status concernStatus"
     );
 
     const startOfMonth = new Date();
@@ -43,6 +43,13 @@ export async function GET(request, context) {
           address: elder.address,
           visitSchedule: elder.visitSchedule,
           lastVisitStatus: lastVisit?.status || "No visits yet",
+          // --- NEW: the AI-driven flag (see lib/concernAi.js's
+          // deriveConcernStatus) — "Fine" or "Concern flagged", set
+          // automatically whenever a visit is logged. Used by the
+          // checker's own dashboard so no one has to manually assign a
+          // concern level; lastVisitStatus above is kept unchanged for
+          // the admin checker-detail page.
+          concernStatus: elder.concernStatus || "Fine",
         };
       })
     );

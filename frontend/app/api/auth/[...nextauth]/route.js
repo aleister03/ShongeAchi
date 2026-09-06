@@ -15,12 +15,21 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // Simple demo auth - in production connect to your user DB
+        // Simple demo auth - in production connect to your user DB and
+        // verify the password against it instead of accepting any value.
         if (credentials?.email && credentials?.password) {
+          // CHANGED: id used to be hardcoded to "1" for every credentials
+          // login, so every demo account shared one familyMemberId and
+          // could see (and edit/delete) every other account's registered
+          // elders. Derive a stable per-email id instead — same email
+          // always maps to the same account, different emails never
+          // collide. Normalized (trimmed + lowercased) so "User@x.com"
+          // and "user@x.com" resolve to the same account.
+          const normalizedEmail = credentials.email.trim().toLowerCase();
           return {
-            id: "1",
-            email: credentials.email,
-            name: credentials.email.split("@")[0],
+            id: normalizedEmail,
+            email: normalizedEmail,
+            name: normalizedEmail.split("@")[0],
           };
         }
         return null;
