@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///home/cybertec/Music/ShongeAchiM/frontend/app/elder/[id]/subscription/checkout/layout.js"],"sourcesContent":["import \"@/app/styles/payments.css\";\n\n// Loads the payment sandbox's fonts (Manrope, Material Symbols) and\n// custom CSS classes, scoped only to this route tree so the rest of the\n// app's typography/styling is unaffected.\nexport default function CheckoutLayout({ children }) {\n  return (\n    <>\n      <link\n        href=\"https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap\"\n        rel=\"stylesheet\"\n      />\n      <link\n        href=\"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap\"\n        rel=\"stylesheet\"\n      />\n      <div className=\"font-manrope\" style={{ background: \"#fdfae9\", minHeight: \"100vh\" }}>\n        {children}\n      </div>\n    </>\n  );\n}\n"],"names":["CheckoutLayout","children","href","rel","className","style","background","minHeight"],"mappings":";;;;;;;AAKe,SAASA,eAAe,EAAEC,QAAQ,EAAE;IACjD,qBACE;;0BACE,8OAAC;gBACCC,MAAK;gBACLC,KAAI;;;;;;0BAEN,8OAAC;gBACCD,MAAK;gBACLC,KAAI;;;;;;0BAEN,8OAAC;gBAAIC,WAAU;gBAAeC,OAAO;oBAAEC,YAAY;oBAAWC,WAAW;gBAAQ;0BAC9EN;;;;;;;;;;;;AAIT"}}]
-}
